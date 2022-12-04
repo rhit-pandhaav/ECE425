@@ -515,6 +515,7 @@ void pivot(int direction, float spins) {
   INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
 */
 void spin(int direction, double spins) {
+  // Testing GitHub
   if (direction == 1) {
     digitalWrite(ltDirPin, HIGH); // Enables the motor to move in a particular direction
     digitalWrite(rtDirPin, LOW); // Enables the motor to move in a particular direction
