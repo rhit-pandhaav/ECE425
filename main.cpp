@@ -649,14 +649,14 @@ void setup()
 void loop()
 {
   //uncomment each function one at a time to see what the code does
-  //forward(2);
+  forward(2);
   //delay(2000);
   //reverse(2);
   //stop();
   //delay(3000);
   //spin(1,0.5);
   //pivot(1,3);
-  turn(1,2,32);
+//  turn(1,2,32);
 
   //move1();//call move back and forth function
   //move2();//call move back and forth function with AccelStepper library functions
