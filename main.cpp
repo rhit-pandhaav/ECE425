@@ -71,9 +71,9 @@
 #include <SoftwareSerial.h> //include Bluetooth module
 
 //state LEDs connections
-#define redLED 5            //red LED for displaying states
-#define grnLED 6            //green LED for displaying states
-#define ylwLED 7            //yellow LED for displaying states
+#define redLED 6            //red LED for displaying states
+#define grnLED 7            //green LED for displaying states
+#define ylwLED 8            //yellow LED for displaying states
 #define enableLED 13        //stepper enabled LED
 
 //define motor pin numbers
@@ -515,7 +515,6 @@ void pivot(int direction, float spins) {
   INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
 */
 void spin(int direction, double spins) {
-  // Testing GitHub
   if (direction == 1) {
     digitalWrite(ltDirPin, HIGH); // Enables the motor to move in a particular direction
     digitalWrite(rtDirPin, LOW); // Enables the motor to move in a particular direction
@@ -547,37 +546,74 @@ void spin(int direction, double spins) {
   INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
 */
 void turn(int direction, float spins, float diameter) {
-  //spins=spins*4000;
-  float width = 8.35;
-  int C1 = round(3.142* (diameter-(2*width)));    //circumference of the inner circle
-  int C2 = round(3.142*diameter);                //circumference of the outside circle
-  int speed = 800;
-  int lowSpeed = round(speed*(C1/C2));
-  int spins2 = round(spins * (912/12) * C2);
-  int spins1 = round(spins * (912/12) * C1);
-  if (direction==1){
-    stepperLeft.moveTo(912*spins);
-    stepperRight.moveTo(912*C1/C2*spins);
-    stepperLeft.setMaxSpeed(speed);
-    stepperRight.setMaxSpeed(speed*C1/C2);
-    stepperLeft.runSpeedToPosition();
-    stepperRight.runSpeedToPosition();
-    Serial.println(C1);
-  }
-  else if (direction==0){
-    stepperLeft.moveTo(spins1);
-    stepperRight.moveTo(spins2);
-    stepperLeft.setMaxSpeed(lowSpeed);
-    stepperRight.setMaxSpeed(speed);    
-    stepperLeft.runSpeedToPosition();
-    stepperRight.runSpeedToPosition();
-  }
-  runToStop();
+float width = 8.464;
+float ang = spins * 2 * 3.142;
+float s2 = (diameter/2) * ang;
+float s1 = s2 + (width * ang);
+float p2 = round(s2 * (912/12));
+float p1 = round(s1 * (912/12));
+
+int t = 10;
+
+float speed = 800;
+
+float new_speed1 = speed;
+float new_speed2 = speed * (p2/p1);
+
+Serial.print("speed1 = ");
+Serial.print(new_speed1);
+Serial.print(";");
+
+Serial.print("speed2 = ");
+Serial.print(new_speed2);
+Serial.print(";");
+
+Serial.print("p1 = ");
+Serial.print(p1);
+Serial.print(";");
+
+Serial.print("p2 = ");
+Serial.print(p2);
+Serial.print(";");
+
+Serial.print("s1 = ");
+Serial.print(s1);
+Serial.print(";");
+
+Serial.print("s2 = ");
+Serial.print(s2);
+Serial.print(";");
+
+
+
+if (direction == 1) {
+  stepperLeft.move(p1);
+  stepperRight.move(p2);
+  stepperLeft.setMaxSpeed(new_speed1);
+  // stepperLeft.setAcceleration(7000);
+  stepperRight.setMaxSpeed(new_speed2);
+  // stepperRight.setAcceleration(10000);
 }
+
+else if (direction == 0){
+  stepperLeft.move(p2);
+  stepperRight.move(p1);
+  stepperLeft.setMaxSpeed(new_speed2);
+  // stepperLeft.setAcceleration(7000);
+  stepperRight.setMaxSpeed(new_speed1);
+  // stepperRight.setAcceleration(10000);
+}
+stepperRight.runSpeedToPosition();
+stepperLeft.runSpeedToPosition();
+runToStop();
+
+}
+
+
 /*
   INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
 */
-void forward(int distance) {
+void forward(float distance) {
   distance = distance*912;
   stepperLeft.moveTo(distance);
   stepperRight.moveTo(distance);
@@ -609,6 +645,10 @@ void stop() {
   INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
 */
 void moveCircle(int diam, int dir) {
+  digitalWrite(redLED, HIGH);
+  turn(dir,1,diam);
+  digitalWrite(redLED, LOW);
+
 }
 
 /*
@@ -616,6 +656,36 @@ void moveCircle(int diam, int dir) {
   twice with 2 different direcitons to create a figure 8 with circles of the given diameter.
 */
 void moveFigure8(int diam) {
+  digitalWrite(redLED, HIGH);
+  digitalWrite(ylwLED, HIGH);
+  moveCircle(diam, 1);
+  moveCircle(diam, 0);
+  digitalWrite(redLED, LOW);
+  digitalWrite(ylwLED, LOW);
+
+}
+
+void GoToAngle(float angle, int dir) {
+  angle = angle*(100/360);
+  if (dir == 1) {     //go clockwise
+    while(encoder[0] < angle) {
+      stepperLeft.setSpeed(500);
+      stepperRight.setSpeed(-500);
+      steppers.run();
+    }//end while
+    runToStop();
+  } //end if
+  else if (dir == 0) {
+    while(encoder[0] < angle) {
+      stepperLeft.setSpeed(-500);
+      stepperRight.setSpeed(500);
+      stepperLeft.runSpeedToPosition();
+      stepperRight.runSpeedToPosition();
+    }//end while
+    runToStop();
+  }
+
+
 }
 
 
@@ -638,7 +708,7 @@ void setup()
   
  // init_BT(); //initialize Bluetooth
 
-  //init_IMU(); //initialize IMU
+  init_IMU(); //initialize IMU
   
   Serial.println("Robot starting...");
   Serial.println("");
@@ -649,15 +719,14 @@ void setup()
 void loop()
 {
   //uncomment each function one at a time to see what the code does
-  forward(2);
-  //delay(2000);
-  //reverse(2);
-  //stop();
-  //delay(3000);
-  //spin(1,0.5);
-  //pivot(1,3);
-//  turn(1,2,32);
 
+  // moveFigure8(36);
+  // Serial.print(encoder[0]);
+  // Serial.print(",");
+  // Serial.print(encoder[1]);
+  // forward(0.5);
+  //spin(1,1);
+  GoToAngle(90,1);
   //move1();//call move back and forth function
   //move2();//call move back and forth function with AccelStepper library functions
   //move3();//call move back and forth function with MultiStepper library functions
@@ -665,10 +734,11 @@ void loop()
   //move5(); //move continuously with 2 different speeds
 
   //Uncomment to read Encoder Data (uncomment to read on serial monitor)
-  //print_encoder_data();   //prints encoder data
+  //print_encoder_data();   //prints encoder data   [45 ticks = 1 Left revolution, 46 ticks = 1 Right revolution]
+  
 
   //Uncomment to read IMU Data (uncomment to read on serial monitor)
-  //print_IMU_data();         //print IMU data
+  // print_IMU_data();         //print IMU data
 
   //Uncomment to Send and Receive with Bluetooth
   //Bluetooth_comm();
