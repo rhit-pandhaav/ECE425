@@ -666,23 +666,25 @@ void moveFigure8(int diam) {
 }
 
 void GoToAngle(float angle, int dir) {
-  angle = angle*(100/360);
+  float goalAngle = angle*(100/360);
   if (dir == 1) {     //go clockwise
-    while(encoder[0] < angle) {
-      stepperLeft.setSpeed(500);
-      stepperRight.setSpeed(-500);
+    while(encoder[0] < goalAngle) { // Run until you reach the goal angle
+      float errorL = goalAngle - encoder[0];
+      float errorR = goalAngle - encoder[1];
+      stepperLeft.setSpeed(500*(errorL)/goalAngle);  // Make speed proportional to distance to goal
+      stepperRight.setSpeed(-500*(errorR)/goalAngle);
+      stepperLeft.move(errorL*0.5);  // Move to half the distance remaining and reevaluate error
+      stepperRight.move(errorR*0.5);
       steppers.run();
     }//end while
-    runToStop();
   } //end if
-  else if (dir == 0) {
+  else if (dir == 0) { // Haven't impemented proportional control yet
     while(encoder[0] < angle) {
       stepperLeft.setSpeed(-500);
       stepperRight.setSpeed(500);
       stepperLeft.runSpeedToPosition();
       stepperRight.runSpeedToPosition();
     }//end while
-    runToStop();
   }
 
 
