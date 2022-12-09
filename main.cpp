@@ -495,16 +495,23 @@ void move5() {
 
 
 /*
-  INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
+  It turns the robot in the given direction a given number of revolutions, with the axis of rotation in one of the wheels.
+  The number of rotations is converted to pulses using the diameter of the wheels, the width of the robot and 
+  the number of pulses per feet, which yields the factor 4100.
+
+
+  @param direction clockwise (0) or counterclockwise (1) direction
+  @param spins number of full revolutions to execute
+
 */
 void pivot(int direction, float spins) {
   spins=spins*4100;
   if(direction==1){
-    stepperLeft.moveTo(spins);
+    stepperLeft.move(spins);
 
   }
   else if(direction==0){
-    stepperRight.moveTo(spins);
+    stepperRight.move(spins);
   }
   stepperLeft.runSpeedToPosition();
   stepperRight.runSpeedToPosition();
@@ -512,7 +519,13 @@ void pivot(int direction, float spins) {
 }
 
 /*
-  INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
+  It turns the robot in the given direction a given number of revolutions, with the axis of rotation in the center of the robot.
+  The number of rotations is converted to pulses using the diameter of the wheels, the width of the robot and 
+  the number of pulses per feet, which yields the factor 1997.
+  It does not use the AccelStepper library
+
+  @param direction clockwise (0) or counterclockwise (1) direction
+  @param spins number of full revolutions to execute
 */
 void spin(int direction, double spins) {
   if (direction == 1) {
@@ -524,7 +537,7 @@ void spin(int direction, double spins) {
     digitalWrite(rtDirPin, HIGH); // Enables the motor to move in a particular direction
   }
   else{
-    printf('Insert 1(clockwise) or 0(counter cockwise)');
+    printf("Insert 1(clockwise) or 0(counter cockwise)");
   }
   
   spins = spins*1997;
@@ -543,65 +556,43 @@ void spin(int direction, double spins) {
 }
 
 /*
-  INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
+  It turns the robot in the given direction a given number of revolutions following a circle of a given diameter.
+  The number of rotations is converted to pulses using the width of the robot, the diameter of the circle and the 
+  number of 912 pulses per feet.
+  The outer wheel always has a speed of 800 and the inner wheel speed is proportional to the ratio of the distances
+  the inner and outer wheel travel.
+
+
+  @param direction clockwise (0) or counterclockwise (1) direction
+  @param spins number of full revolutions to execute
+  @param diameter diameter of the turn to execute
 */
 void turn(int direction, float spins, float diameter) {
-float width = 8.464;
-float ang = spins * 2 * 3.142;
-float s2 = (diameter/2) * ang;
-float s1 = s2 + (width * ang);
-float p2 = round(s2 * (912/12));
-float p1 = round(s1 * (912/12));
+float width = 8.464;                // Width of the robot
+float ang = spins * 2 * 3.142;      // Rotation angle to travel
+float s2 = (diameter/2) * ang;      // Inner circumference travelled by the inner wheel in inches
+float s1 = s2 + (width * ang);      // Outer circumference travelled by the outer wheel in inches
+float p2 = round(s2 * (912/12));    // Inner circumference travelled by the inner wheel in inches
+float p1 = round(s1 * (912/12));    // Outer circumference travelled by the outer wheel in pulses
 
-int t = 10;
+float speed = 800;                  // Speed of outer wheel
 
-float speed = 800;
-
-float new_speed1 = speed;
-float new_speed2 = speed * (p2/p1);
-
-Serial.print("speed1 = ");
-Serial.print(new_speed1);
-Serial.print(";");
-
-Serial.print("speed2 = ");
-Serial.print(new_speed2);
-Serial.print(";");
-
-Serial.print("p1 = ");
-Serial.print(p1);
-Serial.print(";");
-
-Serial.print("p2 = ");
-Serial.print(p2);
-Serial.print(";");
-
-Serial.print("s1 = ");
-Serial.print(s1);
-Serial.print(";");
-
-Serial.print("s2 = ");
-Serial.print(s2);
-Serial.print(";");
+float new_speed1 = speed;           // Speed of outer wheel
+float new_speed2 = speed * (p2/p1); // Speed of inner wheel
 
 
-
-if (direction == 1) {
+if (direction == 1) { // Clockwise rotation
   stepperLeft.move(p1);
   stepperRight.move(p2);
   stepperLeft.setMaxSpeed(new_speed1);
-  // stepperLeft.setAcceleration(7000);
   stepperRight.setMaxSpeed(new_speed2);
-  // stepperRight.setAcceleration(10000);
 }
 
 else if (direction == 0){
   stepperLeft.move(p2);
   stepperRight.move(p1);
   stepperLeft.setMaxSpeed(new_speed2);
-  // stepperLeft.setAcceleration(7000);
   stepperRight.setMaxSpeed(new_speed1);
-  // stepperRight.setAcceleration(10000);
 }
 stepperRight.runSpeedToPosition();
 stepperLeft.runSpeedToPosition();
@@ -611,18 +602,24 @@ runToStop();
 
 
 /*
-  INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
+  Moves the robot a given distance in feet.
+  It uses a factor of 912 pulses per feet. This was calculated with the diameter of the wheels and
+  adjusted experimentally.
+  @param distance distance to travel in feet.
 */
 void forward(float distance) {
   distance = distance*912;
-  stepperLeft.moveTo(distance);
-  stepperRight.moveTo(distance);
+  stepperLeft.move(distance);
+  stepperRight.move(distance);
   stepperLeft.runSpeedToPosition();
   stepperRight.runSpeedToPosition();
   runToStop();
 }
 /*
-  INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
+  Moves the robot a given distance in feet backwards.
+  It uses a factor of 912 pulses per feet. This was calculated with the diameter of the wheels and
+  adjusted experimentally.
+  @param distance distance to travel in feet.
 */
 void reverse(int distance) {
   distance = -distance*912;
@@ -633,7 +630,7 @@ void reverse(int distance) {
   runToStop();
 }
 /*
-  INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
+  It stopts both motors.
 */
 void stop() {
   stepperLeft.stop();
@@ -642,7 +639,12 @@ void stop() {
 
 
 /*
-  INSERT DESCRIPTION HERE, what are the inputs, what does it do, functions used
+  This function makes the robot move in a circle of a given diameter in a given direction. It turns the red LED on.
+  The diameter is the inner diameter.
+  It uses the turn() funtion with 1 spin.
+
+  @param diam diameter of the circle
+  @param dir  direction of turning (0 is CW, 1 is CCW)
 */
 void moveCircle(int diam, int dir) {
   digitalWrite(redLED, HIGH);
@@ -654,6 +656,9 @@ void moveCircle(int diam, int dir) {
 /*
   The moveFigure8() function takes the diameter in inches as the input. It uses the moveCircle() function
   twice with 2 different direcitons to create a figure 8 with circles of the given diameter.
+  It turns teh red and yellow LEDs on.
+
+  @param diam diameter of each of the circles of the figure 8.
 */
 void moveFigure8(int diam) {
   digitalWrite(redLED, HIGH);
@@ -665,7 +670,14 @@ void moveFigure8(int diam) {
 
 }
 
-void GoToAngle(float angle, int dir) {
+/*
+  It makes the robot spin to point about  in a given direction.
+  It uses the encoders to reduce the odometry errors.
+  It implements a proportional controller that recalculates the error discretely.
+
+  @param angle The direction the robots is 
+*/
+void goToAngle(float angle, int dir) {
   float goalAngle = angle*(100/360);
   if (dir == 1) {     //go clockwise
     while(encoder[0] < goalAngle) { // Run until you reach the goal angle
@@ -678,6 +690,27 @@ void GoToAngle(float angle, int dir) {
       steppers.run();
     }//end while
   } //end if
+  /*
+  This code moves to the desired position and then calculates how much error from teh goal there is.
+
+  if (dir == 1) {
+    stepperLeft.setSpeed(500);  
+    stepperRight.setSpeed(-500);
+    stepperLeft.move(goalAngle);  // Goal anlge is in ticks not pulses, might need to create a pulse variable 
+    stepperRight.move(goalAngle); // Maybe needs to be negative?
+    steppers.runSpeedToPosition();
+    float errorL = goalAngle - encoder[0];
+    float errorR = goalAngle - encoder[1];
+    if (errorL > 0.1*goalAngle) {
+      stepperLeft.move(errorL);
+    }
+    if (errorR > 0.1*goalAngle) {
+      stepperRight.move(errorR);
+    }
+
+      
+  }*/
+  
   else if (dir == 0) { // Haven't impemented proportional control yet
     while(encoder[0] < angle) {
       stepperLeft.setSpeed(-500);
@@ -687,6 +720,21 @@ void GoToAngle(float angle, int dir) {
     }//end while
   }
 
+
+}
+/*
+@param    x   The x coordinate of the goal
+@param    y   The y coordinate of the goal.
+@def This function takes the x and y coordinate and moves the robot to that location.
+It uses the atan() command to calculate the angle and the Pythagoras theorem to calculate the distance to travel.
+Uses the subfuntions goToAngle() and forward() defined above
+
+*/
+void goToGoal(int x, int y) {
+  long angle = atan(y/x); // Calculate the angle it needs to point to. Might need to adjust for quadrants
+  long disToTravel = sqrt(x^2+y^2);
+  goToAngle(angle, 1);  // Maybe change direction if angle > 180
+  forward(disToTravel);
 
 }
 
@@ -728,7 +776,7 @@ void loop()
   // Serial.print(encoder[1]);
   // forward(0.5);
   //spin(1,1);
-  GoToAngle(90,1);
+  goToAngle(90,1);
   //move1();//call move back and forth function
   //move2();//call move back and forth function with AccelStepper library functions
   //move3();//call move back and forth function with MultiStepper library functions
