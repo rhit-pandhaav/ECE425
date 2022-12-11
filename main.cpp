@@ -505,16 +505,17 @@ void move5() {
 
 */
 void pivot(int direction, float spins) {
-  spins=spins*4100;
-  if(direction==1){
+  spins=spins*4100; // The factor to go from revolutions to pulses was found to be 4100 pulses/rev
+  int speed = 500;  // Speed of motor turning
+  if(direction==1){  // Clockwise rotation
     stepperLeft.move(spins);
-
+    stepperLeft.setMaxSpeed(speed);
   }
-  else if(direction==0){
+  else if(direction==0){  // Counter-clockwise rotation
     stepperRight.move(spins);
+    stepperLeft.setMaxSpeed(speed);
   }
-  stepperLeft.runSpeedToPosition();
-  stepperRight.runSpeedToPosition();
+  steppers.runSpeedToPosition();
   runToStop();
 }
 
@@ -528,21 +529,21 @@ void pivot(int direction, float spins) {
   @param spins number of full revolutions to execute
 */
 void spin(int direction, double spins) {
-  if (direction == 1) {
+  if (direction == 1) {  // Clockwise rotation
     digitalWrite(ltDirPin, HIGH); // Enables the motor to move in a particular direction
     digitalWrite(rtDirPin, LOW); // Enables the motor to move in a particular direction
   }
-  else if (direction == 0) {
+  else if (direction == 0) {  // Counter-clockwise rotation
     digitalWrite(ltDirPin, LOW); // Enables the motor to move in a particular direction
     digitalWrite(rtDirPin, HIGH); // Enables the motor to move in a particular direction
   }
-  else{
+  else { // Wrong input
     printf("Insert 1(clockwise) or 0(counter cockwise)");
   }
   
-  spins = spins*1997;
-  for (int x = 0; x < spins; x++) {
-    digitalWrite(ltStepPin, HIGH);
+  spins = spins*1997;  // This factor is the number of pulses of each motor for a full revolution
+  for (int x = 0; x < spins; x++) { // Makes the motors move the pulses needed to complete the spins
+    digitalWrite(ltStepPin, HIGH); 
     delayMicroseconds(1000);
     digitalWrite(rtStepPin, HIGH);
     delayMicroseconds(stepTime);
@@ -572,13 +573,13 @@ float width = 8.464;                // Width of the robot
 float ang = spins * 2 * 3.142;      // Rotation angle to travel
 float s2 = (diameter/2) * ang;      // Inner circumference travelled by the inner wheel in inches
 float s1 = s2 + (width * ang);      // Outer circumference travelled by the outer wheel in inches
-float p2 = round(s2 * (912/12));    // Inner circumference travelled by the inner wheel in inches
-float p1 = round(s1 * (912/12));    // Outer circumference travelled by the outer wheel in pulses
+float p2 = round(s2 * (912./12.));  // Inner circumference travelled by the inner wheel in steps
+float p1 = round(s1 * (912./12.));  // Outer circumference travelled by the outer wheel in steps
 
 float speed = 800;                  // Speed of outer wheel
 
 float new_speed1 = speed;           // Speed of outer wheel
-float new_speed2 = speed * (p2/p1); // Speed of inner wheel
+float new_speed2 = speed * (p2/p1); // Speed of inner wheel, proportional to the circuference
 
 
 if (direction == 1) { // Clockwise rotation
@@ -588,14 +589,13 @@ if (direction == 1) { // Clockwise rotation
   stepperRight.setMaxSpeed(new_speed2);
 }
 
-else if (direction == 0){
+else if (direction == 0){  // Counter-clockwise rotation
   stepperLeft.move(p2);
   stepperRight.move(p1);
   stepperLeft.setMaxSpeed(new_speed2);
   stepperRight.setMaxSpeed(new_speed1);
 }
-stepperRight.runSpeedToPosition();
-stepperLeft.runSpeedToPosition();
+steppers.runSpeedToPosition();
 runToStop();
 
 }
@@ -608,11 +608,12 @@ runToStop();
   @param distance distance to travel in feet.
 */
 void forward(float distance) {
-  distance = distance*912;
-  stepperLeft.move(distance);
-  stepperRight.move(distance);
-  stepperLeft.runSpeedToPosition();
-  stepperRight.runSpeedToPosition();
+  distance = distance*912;            // We experimentally found that there are 912 pulses per feet
+  stepperLeft.move(distance);         // Sets the distance to move for the left motor
+  stepperRight.move(distance);        // Sets the distance to move for the right motor
+  stepperLeft.setMaxSpeed(500);       // Sets the velocity to move for the left motor
+  stepperRight.setMaxSpeed(500);      // Sets the velocity to move for the right motor
+  steppers.runSpeedToPosition();      // Moves the motors at given speed
   runToStop();
 }
 /*
@@ -622,15 +623,14 @@ void forward(float distance) {
   @param distance distance to travel in feet.
 */
 void reverse(int distance) {
-  distance = -distance*912;
+  distance = -distance*912;           // 912 is the number of pulses per feet
   stepperLeft.moveTo(distance);
   stepperRight.moveTo(distance);
-  stepperLeft.runSpeedToPosition();
-  stepperRight.runSpeedToPosition();
+  steppers.runSpeedToPosition();
   runToStop();
 }
 /*
-  It stopts both motors.
+  It stops both motors.
 */
 void stop() {
   stepperLeft.stop();
@@ -643,13 +643,13 @@ void stop() {
   The diameter is the inner diameter.
   It uses the turn() funtion with 1 spin.
 
-  @param diam diameter of the circle
+  @param diam diameter of the circle in inches
   @param dir  direction of turning (0 is CW, 1 is CCW)
 */
 void moveCircle(int diam, int dir) {
-  digitalWrite(redLED, HIGH);
-  turn(dir,1,diam);
-  digitalWrite(redLED, LOW);
+  digitalWrite(redLED, HIGH); // Turns red LED on
+  turn(dir,1,diam);           // Calls the turn function for one revolution with given diameter and direction
+  digitalWrite(redLED, LOW);  // Turns red LED off
 
 }
 
@@ -658,15 +658,15 @@ void moveCircle(int diam, int dir) {
   twice with 2 different direcitons to create a figure 8 with circles of the given diameter.
   It turns teh red and yellow LEDs on.
 
-  @param diam diameter of each of the circles of the figure 8.
+  @param diam diameter of each of the circles of the figure 8 in inches.
 */
 void moveFigure8(int diam) {
-  digitalWrite(redLED, HIGH);
-  digitalWrite(ylwLED, HIGH);
-  moveCircle(diam, 1);
-  moveCircle(diam, 0);
-  digitalWrite(redLED, LOW);
-  digitalWrite(ylwLED, LOW);
+  digitalWrite(redLED, HIGH);  // Turns red LED on
+  digitalWrite(ylwLED, HIGH);  // Turns yellow LED on
+  moveCircle(diam, 1);         // Calls the circle function in the clockwise direction with the given diameter
+  moveCircle(diam, 0);         // Calls the circle function in the counter-clockwise direction with the given diameter
+  digitalWrite(redLED, LOW);   // Turns red LED off
+  digitalWrite(ylwLED, LOW);   // Turns yellow LED off
 
 }
 
@@ -675,67 +675,126 @@ void moveFigure8(int diam) {
   It uses the encoders to reduce the odometry errors.
   It implements a proportional controller that recalculates the error discretely.
 
-  @param angle The direction the robots is 
+  @param angle The goal angle in degrees
+  @param dir the direction to rotate 0 is CW, 1 is CCW
 */
 void goToAngle(float angle, int dir) {
-  float goalAngle = angle*(100/360);
+   double goalAngle = angle*100./360.;  // The 100/360 is the number of pulses per degree (100 pulses for a full revolution)
+
+  /*
+  //This chunk of code attempts to move the motors only if the encoders have not reached the goal yet.\
+  
   if (dir == 1) {     //go clockwise
+  // Serial.print(goalAngle);
     while(encoder[0] < goalAngle) { // Run until you reach the goal angle
-      float errorL = goalAngle - encoder[0];
-      float errorR = goalAngle - encoder[1];
-      stepperLeft.setSpeed(500*(errorL)/goalAngle);  // Make speed proportional to distance to goal
-      stepperRight.setSpeed(-500*(errorR)/goalAngle);
-      stepperLeft.move(errorL*0.5);  // Move to half the distance remaining and reevaluate error
-      stepperRight.move(errorR*0.5);
+      float errorL = goalAngle - encoder[0]+2;
+      float errorR = goalAngle - encoder[1]+2;
+      stepperLeft.setSpeed(500);  // Make speed proportional to distance to goal
+      stepperRight.setSpeed(-500);
+      stepperLeft.move(errorL);  // Move to half the distance remaining and reevaluate error
+      stepperRight.move(errorR);
       steppers.run();
+      Serial.print("moving robot");
+
     }//end while
   } //end if
-  /*
-  This code moves to the desired position and then calculates how much error from teh goal there is.
-
-  if (dir == 1) {
-    stepperLeft.setSpeed(500);  
-    stepperRight.setSpeed(-500);
-    stepperLeft.move(goalAngle);  // Goal anlge is in ticks not pulses, might need to create a pulse variable 
-    stepperRight.move(goalAngle); // Maybe needs to be negative?
-    steppers.runSpeedToPosition();
-    float errorL = goalAngle - encoder[0];
-    float errorR = goalAngle - encoder[1];
-    if (errorL > 0.1*goalAngle) {
-      stepperLeft.move(errorL);
-    }
-    if (errorR > 0.1*goalAngle) {
-      stepperRight.move(errorR);
-    }
-
-      
-  }*/
   
-  else if (dir == 0) { // Haven't impemented proportional control yet
-    while(encoder[0] < angle) {
-      stepperLeft.setSpeed(-500);
-      stepperRight.setSpeed(500);
-      stepperLeft.runSpeedToPosition();
-      stepperRight.runSpeedToPosition();
-    }//end while
-  }
+  */ 
 
+  
+  //This code moves to the desired position and then calculates the error form the goal using encoders.
+
+  if (dir == 0) {                           // Move clockwise
+    pivot(dir, angle/360.);                 // Pivots in the given direction, the number of spins given
+    float errorL = goalAngle - encoder[0];  // Calculates teh error in the left encoder
+    if (errorL > 0.1*goalAngle) {           // If the error is more than 10% off from the goal, correct the motor
+      stepperLeft.move(errorL);             // move the motor by the offset from the goal
+    }
+  }
+  
+  else if (dir == 1) {                      // Move counter-clockwise
+    pivot(dir, angle/360);                  // Pivots in the given direction, the number of spins given
+    float errorR = goalAngle - encoder[1];  // Calculates teh error in the left encoder
+    Serial.print(0.1*goalAngle);            // Prints how far from the goal it is
+    if (errorR > 0.1*goalAngle) {           // If the error is more than 10% off from the goal, correct the motor
+      digitalWrite(redLED, HIGH);           // Turn LED on to check if the encoder is correcting the distance
+      stepperRight.move(errorR);
+      digitalWrite(redLED, LOW);            // Turn LED off to check if the encoder is correcting it 
+    }
+  }
 
 }
 /*
-@param    x   The x coordinate of the goal
-@param    y   The y coordinate of the goal.
-@def This function takes the x and y coordinate and moves the robot to that location.
+This function takes the x and y coordinate and moves the robot to that location.
 It uses the atan() command to calculate the angle and the Pythagoras theorem to calculate the distance to travel.
 Uses the subfuntions goToAngle() and forward() defined above
 
+@param    x   The x coordinate of the goal
+@param    y   The y coordinate of the goal.
 */
-void goToGoal(int x, int y) {
-  long angle = atan(y/x); // Calculate the angle it needs to point to. Might need to adjust for quadrants
-  long disToTravel = sqrt(x^2+y^2);
-  goToAngle(angle, 1);  // Maybe change direction if angle > 180
-  forward(disToTravel);
+void goToGoal(float x, float y) {
+  float angle = atan2(y,x)*180/PI; // Calculate the angle it needs to point to
+  
+  int dir = 1;                    // Go counter-clockwise if the goal position is in the first or second quadrant
+  if (y < 0) {                    // The goal position is in the third or forth quadrant
+    angle = abs(angle);           // Make the angle positive
+    dir = 1;                      // Go clockwise
+  }
 
+  
+  float disToTravel = sqrt(x*x+y*y); // Calculates the distance to travel using the pythagoras theorem
+  goToAngle(angle, dir);          // Uses the goToAngle to pivot to the appropiate direction
+  forward(disToTravel);           // Moves the distance to the goal
+
+}
+
+
+/*
+The robot moves in a square with a side of a given length.
+It corrects for odometry error using the encoders
+It uses the forward(), goToAngle() and correct 
+
+**STILL IN PROGRESS**
+
+
+@param    length length of each of the sides of the square in feet
+*/
+void makeSquare(int length) {
+  int length_ticksL = length*45;              // Calculate the number of encoder ticks on left motor to move the distance (45ticks/feet)
+  int length_ticksR = length*46;              // Calculate the number of encoder ticks on right motor to move the distance (46ticks/feet)
+  forward(length);                            // Move forward the given ammount using forward()
+  float errorL = length_ticksL - encoder[0];  // Error in the left encoder from goal
+  float errorR = length_ticksR - encoder[1];  // Error in the right encoder from goal
+  correctForwardEncoders(length_ticksL, length_ticksR, errorL, errorR);
+  goToAngle(90,1);
+
+  forward(length);
+  errorL = length_ticksL - encoder[0];
+  correctForwardEncoders();
+  goToAngle(90,1);
+
+  forward(length);
+  correctForwardEncoders();
+  goToAngle(90,1);
+
+  forward(length);
+  correctForwardEncoders();
+  goToAngle(90,1);
+
+}
+
+void correctForwardEncoders(int length_ticksL, int length_ticksR, float errorL, float errorR) {
+  if (errorL > 0.1*length_ticksL) {
+    stepperLeft.move(errorL);
+    stepperLeft.setMaxSpeed(300);
+  }
+  if (errorR > 0.1*length_ticksR) {
+    stepperRight.move(errorR);
+    stepperRight.setMaxSpeed(300);
+  }
+  steppers.runSpeedToPosition();
+  encoder[0] = 0;
+  encoder[1] = 0;
 }
 
 
@@ -769,29 +828,31 @@ void setup()
 void loop()
 {
   //uncomment each function one at a time to see what the code does
-
+  // moveCircle(36, 1);
+  // delay(2000);
   // moveFigure8(36);
-  // Serial.print(encoder[0]);
-  // Serial.print(",");
-  // Serial.print(encoder[1]);
-  // forward(0.5);
-  //spin(1,1);
-  goToAngle(90,1);
-  //move1();//call move back and forth function
-  //move2();//call move back and forth function with AccelStepper library functions
+  // delay(2000);
+  // goToAngle(60,1);
+  // delay(5000);
+  // goToAngle(135,0);
+  // delay(5000);
+  // goToGoal(0,3);
+
+  // move1();//call move back and forth function
+  // move2();//call move back and forth function with AccelStepper library functions
   //move3();//call move back and forth function with MultiStepper library functions
   //move4(); //move to target position with 2 different speeds
-  //move5(); //move continuously with 2 different speeds
+  move5(); //move continuously with 2 different speeds
 
   //Uncomment to read Encoder Data (uncomment to read on serial monitor)
   //print_encoder_data();   //prints encoder data   [45 ticks = 1 Left revolution, 46 ticks = 1 Right revolution]
   
 
   //Uncomment to read IMU Data (uncomment to read on serial monitor)
-  // print_IMU_data();         //print IMU data
+  print_IMU_data();         //print IMU data
 
   //Uncomment to Send and Receive with Bluetooth
   //Bluetooth_comm();
 
-  delay(wait_time);               //wait to move robot or read data
+  delay(3*wait_time);               //wait to move robot or read data
 }
