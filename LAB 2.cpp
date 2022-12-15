@@ -1,29 +1,10 @@
 
 /*
-  NOTE:
-   THIS IS THE STANDARD FOR HOW TO PROPERLY COMMENT CODE
-   Header comment has program, name, author name, date created
-   Header comment has brief description of what program does
-   Header comment has list of key functions and variables created with decription
-   There are sufficient in line and block comments in the body of the program
-   Variables and functions have logical, intuitive names
-   Functions are used to improve modularity, clarity, and readability
-***********************************
-  RobotIntro.ino
-  Carlotta Berry 11.21.16
-
-  This program will introduce using the stepper motor library to create motion algorithms for the robot.
-  The motions will be go to angle, go to goal, move in a circle, square, figure eight and teleoperation (stop, forward, spin, reverse, turn)
-  It will also include wireless commmunication for remote control of the robot by using a game controller or serial monitor.
-  The primary functions created are
-  moveCircle - given the diameter in inches and direction of clockwise or counterclockwise, move the robot in a circle with that diameter
-  moveFigure8 - given the diameter in inches, use the moveCircle() function with direction input to create a Figure 8
-  forward, reverse - both wheels move with same velocity, same direction
-  pivot- one wheel stationary, one wheel moves forward or back
-  spin - both wheels move with same velocity opposite direction
-  turn - both wheels move with same direction different velocity
-  stop -both wheels stationary
-
+  ECE 425 Lab 2
+  Done by: Advait Pandharkar and Alejandro Marcinedo Laregolla
+  Robot name: Kamen
+  
+  Libraries included: PinChangeint, TimerOne, NewPing
   Interrupts
   https://www.arduino.cc/reference/en/language/functions/external-interrupts/attachinterrupt/
   https://www.arduino.cc/en/Tutorial/CurieTimer1Interrupt
@@ -82,6 +63,13 @@
 #define rtDirPin 51  // right stepper motor direction pin 
 #define ltStepPin 52 //left stepper motor step pin 
 #define ltDirPin 53  //left stepper motor direction pin 
+
+#define sonarL 4
+#define sonarR 5
+#define IR_front 2
+#define IR_back 0
+#define IR_Left 1
+#define IR_right 3
 
 AccelStepper stepperRight(AccelStepper::DRIVER, rtStepPin, rtDirPin);//create instance of right stepper motor object (2 driver pins, low to high transition step pin 52, direction input pin 53 (high means forward)
 AccelStepper stepperLeft(AccelStepper::DRIVER, ltStepPin, ltDirPin);//create instance of left stepper motor object (2 driver pins, step pin 50, direction input pin 51)
@@ -493,6 +481,52 @@ void move5() {
 
 
 
+float sonarReadL(){
+  float value=0;
+  digitalWrite(sonarL, LOW);
+  delayMicroseconds(2);
+  digitalWrite(sonarL, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(sonarL, LOW);
+  pinMode(sonarL, INPUT);
+  value = value + pulseIn(sonarL, HIGH); // Gets the value for left sonar
+  value = value/157.-(1./2.);
+  return value;
+}
+
+float sonarReadR() {
+  long value = 0;
+  digitalWrite(sonarR, LOW);
+  delayMicroseconds(2);
+  digitalWrite(sonarR, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(sonarR, LOW);
+  pinMode(sonarR, INPUT);
+  value = value + pulseIn(sonarR, HIGH); // Gets the value for Right sonar
+  value = value/160-(3./2.);
+  return value;
+}
+
+
+
+void obstacle_avoid() {
+  Serial.print("outside while");
+  int test = 1;
+  while(test == 1){
+    Serial.println('In while');
+    stepperLeft.setSpeed(700);
+    stepperRight.setSpeed(700);
+    steppers.run();
+    int dist = sonarReadL();
+    while(dist < 3){
+      Serial.println('while 2');
+      dist = sonarReadL();
+      stepperLeft.stop();
+      stepperRight.stop();
+    }//end while(dist<200)
+  }//end while(true)
+}
+
 
 /*
   It turns the robot in the given direction a given number of revolutions, with the axis of rotation in one of the wheels.
@@ -768,8 +802,9 @@ void setup()
 void loop()
 {
   //uncomment each function one at a time to see what the code does
+  Serial.println("running this file");
   
-  // square(2);
+  obstacle_avoid();
 
   // move1();                     //call move back and forth function
   // move2();                     //call move back and forth function with AccelStepper library functions
