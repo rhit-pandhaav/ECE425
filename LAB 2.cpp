@@ -64,12 +64,12 @@
 #define ltStepPin 52 //left stepper motor step pin 
 #define ltDirPin 53  //left stepper motor direction pin 
 
-#define sonarL 4
-#define sonarR 5
-#define IR_front 2
-#define IR_back 0
-#define IR_Left 1
-#define IR_right 3
+#define sonarL A4
+#define sonarR A5
+#define IR_front A2
+#define IR_back A0
+#define IR_Left A1
+#define IR_right A3
 
 AccelStepper stepperRight(AccelStepper::DRIVER, rtStepPin, rtDirPin);//create instance of right stepper motor object (2 driver pins, low to high transition step pin 52, direction input pin 53 (high means forward)
 AccelStepper stepperLeft(AccelStepper::DRIVER, ltStepPin, ltDirPin);//create instance of left stepper motor object (2 driver pins, step pin 50, direction input pin 51)
@@ -483,49 +483,45 @@ void move5() {
 
 float sonarReadL(){
   float value=0;
-  digitalWrite(sonarL, LOW);
-  delayMicroseconds(2);
-  digitalWrite(sonarL, HIGH);
-  delayMicroseconds(5);
-  digitalWrite(sonarL, LOW);
-  pinMode(sonarL, INPUT);
-  value = value + pulseIn(sonarL, HIGH); // Gets the value for left sonar
+  for (int i =0; i<=10; i++) {
+    pinMode(sonarL, OUTPUT);
+    digitalWrite(sonarL, LOW);
+    delayMicroseconds(2);
+    digitalWrite(sonarL, HIGH);
+    delayMicroseconds(5);
+    digitalWrite(sonarL, LOW);
+    pinMode(sonarL, INPUT);
+    value = value + pulseIn(sonarL, HIGH); // Gets the value for left sonar
+  }
+  value = value/10.;
   value = value/157.-(1./2.);
+  Serial.println(value);
+
   return value;
 }
 
 float sonarReadR() {
-  long value = 0;
-  digitalWrite(sonarR, LOW);
-  delayMicroseconds(2);
-  digitalWrite(sonarR, HIGH);
-  delayMicroseconds(5);
-  digitalWrite(sonarR, LOW);
-  pinMode(sonarR, INPUT);
-  value = value + pulseIn(sonarR, HIGH); // Gets the value for Right sonar
+  float value=0;
+  for (int i =0; i<=10; i++) {
+    pinMode(sonarR, OUTPUT);
+    digitalWrite(sonarR, LOW);
+    delayMicroseconds(2);
+    digitalWrite(sonarR, HIGH);
+    delayMicroseconds(5);
+    digitalWrite(sonarR, LOW);
+    pinMode(sonarR, INPUT);
+    value = value + pulseIn(sonarR, HIGH); // Gets the value for left sonar
+  }
+  value = value/10.;
   value = value/160-(3./2.);
+  Serial.print(value);
+
   return value;
 }
 
+  // bool flag=true;
 
 
-void obstacle_avoid() {
-  Serial.print("outside while");
-  int test = 1;
-  while(test == 1){
-    Serial.println('In while');
-    stepperLeft.setSpeed(700);
-    stepperRight.setSpeed(700);
-    steppers.run();
-    int dist = sonarReadL();
-    while(dist < 3){
-      Serial.println('while 2');
-      dist = sonarReadL();
-      stepperLeft.stop();
-      stepperRight.stop();
-    }//end while(dist<200)
-  }//end while(true)
-}
 
 
 /*
@@ -641,7 +637,7 @@ steppers.runSpeedToPosition();
   adjusted experimentally.
   @param distance distance to travel in feet.
 */
-void forward(int distance) {
+void forward(float distance) {
   float currentL = encoder[0];    //Set initial variables for left and right motor encoders
   float currentR = encoder[1];
   while (encoder[0] < currentL + distance*45 || encoder[1] < currentR + distance * 46) {    //While loop goes reads the encoders and keeps running till it reaches the length
@@ -771,6 +767,55 @@ void square(int len) {
 
 }
 
+void obstacle_avoid_forward() {
+  // Serial.print("outside while");
+  // int dist = sonarReadL();
+  while (true){
+    int dist = sonarReadL();
+    digitalWrite(redLED, LOW);
+    stepperLeft.setSpeed(600);
+    stepperRight.setSpeed(600);
+    forward(0.1);
+    Serial.println(dist);
+    // delay(1000);
+    while(dist < 5){
+      delay(500);
+      digitalWrite(redLED, HIGH);
+      dist = sonarReadL();
+      stepperLeft.setSpeed(0);
+      stepperRight.setSpeed(0);
+      stepperLeft.run();
+      stepperRight.run();
+      // Serial.println(dist);
+    }//end while(dist<200)
+  }//end while(true)
+}
+
+void obstacle_avoid_reverse() {
+  // Serial.print("outside while");
+  // int dist = sonarReadL();
+  while (true){
+    int dist = sonarReadL();
+    digitalWrite(redLED, LOW);
+    stepperLeft.setSpeed(600);
+    stepperRight.setSpeed(600);
+    forward(0.1);
+    Serial.println(dist);
+    // delay(1000);
+    while(dist < 5){
+      delay(500);
+      digitalWrite(redLED, HIGH);
+      dist = sonarReadL();
+      stepperLeft.setSpeed(0);
+      stepperRight.setSpeed(0);
+      stepperLeft.run();
+      stepperRight.run();
+      // Serial.println(dist);
+    }//end while(dist<200)
+  }//end while(true)
+}
+
+
 
 
 // MAIN
@@ -791,7 +836,7 @@ void setup()
   
  // init_BT(); //initialize Bluetooth
 
-  init_IMU(); //initialize IMU
+  //init_IMU(); //initialize IMU
   
   Serial.println("Robot starting...");
   Serial.println("");
@@ -802,9 +847,9 @@ void setup()
 void loop()
 {
   //uncomment each function one at a time to see what the code does
-  Serial.println("running this file");
+  // Serial.println(" running this file");
   
-  obstacle_avoid();
+  obstacle_avoid_forward();
 
   // move1();                     //call move back and forth function
   // move2();                     //call move back and forth function with AccelStepper library functions
@@ -821,6 +866,7 @@ void loop()
 
   //Uncomment to Send and Receive with Bluetooth
   //Bluetooth_comm();
+  // delay(500);
 
-  delay(5*wait_time);               //wait to move robot or read data
+  //delay(5*wait_time);               //wait to move robot or read data
 }
