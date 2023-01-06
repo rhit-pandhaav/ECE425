@@ -495,7 +495,7 @@ float sonarReadL(){
   }
   value = value/10.;
   value = value/157.-(1./2.);
-  Serial.println(value);
+  // Serial.println(value);
 
   return value;
 }
@@ -771,12 +771,23 @@ void obstacle_avoid_forward() {
   // Serial.print("outside while");
   // int dist = sonarReadL();
   while (true){
-    int dist = sonarReadL();
+    // Serial.println("0");
+    stepperLeft.setSpeed(500);
+    stepperRight.setSpeed(500);
+    stepperLeft.run();
+    stepperRight.run();
+    // Serial.println("1");
     digitalWrite(redLED, LOW);
+    // Serial.println("2");
     stepperLeft.setSpeed(600);
+    // Serial.println("3");
     stepperRight.setSpeed(600);
-    forward(0.1);
-    Serial.println(dist);
+    // Serial.println("4");
+    // forward(0.1);
+    // Serial.println("5");
+    // Serial.println(dist);
+    // Serial.println("6");
+    int dist = sonarReadL();
     // delay(1000);
     while(dist < 5){
       delay(500);
