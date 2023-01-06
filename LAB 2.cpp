@@ -50,6 +50,8 @@
 #include <MultiStepper.h>//include multiple stepper motor library
 #include <Adafruit_MPU6050.h>//Include library for MPU6050 IMU
 #include <SoftwareSerial.h> //include Bluetooth module
+#include <TimerOne.h> //Includes the TimerOne library
+#include <NewPing.h>    //Includes the NewPing library
 
 //state LEDs connections
 #define redLED 6            //red LED for displaying states
@@ -71,6 +73,26 @@
 #define IR_Left A1
 #define IR_right A3
 
+#define obFront 0
+#define obRight 1
+#define obBack 2
+#define obLeft 3
+#define obSLeft 4
+#define obSRight 5
+
+#define forwards 0
+#define backwards 1
+#define leftwards 2
+#define rightwards 3
+#define collide 4
+#define run_away 5
+#define random 6
+
+
+volatile byte flag = 0;
+volatile byte state = 0;
+
+
 AccelStepper stepperRight(AccelStepper::DRIVER, rtStepPin, rtDirPin);//create instance of right stepper motor object (2 driver pins, low to high transition step pin 52, direction input pin 53 (high means forward)
 AccelStepper stepperLeft(AccelStepper::DRIVER, ltStepPin, ltDirPin);//create instance of left stepper motor object (2 driver pins, step pin 50, direction input pin 51)
 MultiStepper steppers;//create instance to control multiple steppers at the same time
@@ -81,6 +103,8 @@ MultiStepper steppers;//create instance to control multiple steppers at the same
 int pauseTime = 2500;   //time before robot moves
 int stepTime = 500;     //delay time between high and low on step pin
 int wait_time = 1000;   //delay for printing data
+int Left_dist;
+int Right_dist;
 
 //define encoder pins
 #define LEFT 0        //left encoder
@@ -479,11 +503,15 @@ void move5() {
   runAtSpeed();
 }
 
+void step_and_run(int speed){
+  stepperLeft.setSpeed(speed);
+  stepperRight.setSpeed(speed);
+  stepperLeft.run();
+  stepperRight.run();
+}
 
-
-float sonarReadL(){
-  float value=0;
-  for (int i =0; i<=10; i++) {
+void sonarRead(){
+  for (int i =0; i<=1; i++) {
     pinMode(sonarL, OUTPUT);
     digitalWrite(sonarL, LOW);
     delayMicroseconds(2);
@@ -491,18 +519,8 @@ float sonarReadL(){
     delayMicroseconds(5);
     digitalWrite(sonarL, LOW);
     pinMode(sonarL, INPUT);
-    value = value + pulseIn(sonarL, HIGH); // Gets the value for left sonar
-  }
-  value = value/10.;
-  value = value/157.-(1./2.);
-  // Serial.println(value);
+    Left_dist = Left_dist + pulseIn(sonarL, HIGH); // Gets the value for left sonar
 
-  return value;
-}
-
-float sonarReadR() {
-  float value=0;
-  for (int i =0; i<=10; i++) {
     pinMode(sonarR, OUTPUT);
     digitalWrite(sonarR, LOW);
     delayMicroseconds(2);
@@ -510,18 +528,190 @@ float sonarReadR() {
     delayMicroseconds(5);
     digitalWrite(sonarR, LOW);
     pinMode(sonarR, INPUT);
-    value = value + pulseIn(sonarR, HIGH); // Gets the value for left sonar
+    Right_dist = Right_dist + pulseIn(sonarR, HIGH); // Gets the value for left sonar
   }
-  value = value/10.;
-  value = value/160-(3./2.);
-  Serial.print(value);
+  Left_dist = Left_dist/2;
+  Left_dist = (Left_dist-78)/157;
 
-  return value;
+  Right_dist = Right_dist/2;
+  Right_dist = (Right_dist-240)/160; 
+
+  // Serial.print("Left: "); Serial.println(Left_dist);
+  // Serial.print("Right: "); Serial.println(Right_dist);
+
+  if(Right_dist < 5){
+    bitSet(flag, obSRight);
+  }
+  else {
+    bitClear(flag, obSRight);
+  }
+
+  if(Left_dist < 5){
+    bitSet(flag, obSLeft);
+  }
+  else {
+    bitClear(flag, obSLeft);
+  }
+
 }
 
-  // bool flag=true;
+
+void updateIR() {
+  int front, left, right, back;
+  for (int k =0; k<5; k++) {
+    front = analogRead(IR_front);
+    left = analogRead(IR_Left);
+    right = analogRead(IR_right);
+    back = analogRead(IR_back);
+  }
+  front = front/5;
+  back = back/5;
+  left = left/5;
+  right = right/5;
+
+  // Serial.print("front: "); Serial.println(front);
+
+  front = 1111/(front+3) - 1;
+  back = 1116/(back+6) - 1;
+  left = 1447/(left-29) - 1;
+  right = 1379/(right-59) - 1;
+
+  if(front < 5) {
+    bitSet(flag, obFront);
+    digitalWrite(redLED, HIGH);
+    Serial.print("IR Front: "); Serial.println(front);
+  }
+  else {
+    bitClear(flag, obFront);
+  }
+
+  if(back < 5) {
+    bitSet(flag, obBack);
+    digitalWrite(redLED, HIGH);
+    Serial.print("IR Back: "); Serial.println(back);
+  }
+  else {
+    bitClear(flag, obBack);
+  }
+
+  if(left < 5) {
+    bitSet(flag, obLeft);
+    digitalWrite(redLED, HIGH);
+    Serial.print("IR Left: "); Serial.println(left);
+  }
+  else {
+    bitClear(flag, obLeft);
+  }
+
+  if(right < 5) {
+    bitSet(flag, obRight);
+    digitalWrite(redLED, HIGH);
+    Serial.print("IR Right: "); Serial.println(right);
+  }
+  else {
+    bitClear(flag, obRight);
+  }
+}
 
 
+void agressive_state() {      //This function is the behavior for aggressive kid
+  // bitSet(state, backwards);
+  if (bitRead(flag, obBack)) {
+    bitClear(state, backwards);
+    bitSet(state, collide);
+    // bitClear(state, );
+    Serial.print("state no flag: "); Serial.println(state, BIN);
+  }
+  else if(bitRead(flag, obFront)){
+    // Serial.println("object seen!");
+    Serial.print("state with flag: "); Serial.println(state, BIN);
+    bitClear(state, backwards);
+    bitSet(state, collide);
+  }
+  else if (bitRead(flag,obLeft)) {
+    bitClear(state, backwards);
+    bitSet(state, collide);
+  }
+}
+ 
+void shy_state(){
+  state = 0;
+  if (bitRead(flag, obBack) && bitRead(flag, obFront) && bitRead(flag, obLeft) && bitRead(flag, obRight)) {
+    bitClear(state, backwards);
+    bitClear(state, forwards);
+    bitClear(state, LEFT);
+    bitClear(state, backwards);
+    bitSet(state, collide);
+  } // 4 obstacles
+  else if(bitRead(flag, obBack) && bitRead(flag, obLeft) && bitRead(flag, obRight)){
+
+    bitClear(state, backwards); bitClear(state, leftwards); bitClear(state,rightwards);
+    bitSet(state, forwards);
+  }// 3 obstacles without front
+  else if (bitRead(flag, obBack) && bitRead(flag, obFront) && bitRead(flag, obLeft)) {
+    state=0;
+    bitSet(state, rightwards);
+  }// 3 without right
+  else if (bitRead(flag, obBack) && bitRead(flag, obFront) && bitRead(flag, obRight)) {
+    state =0;
+    bitSet(state, leftwards);
+  }// 3 without left
+  else if (bitRead(flag, obFront) && bitRead(flag, obLeft) && bitRead(flag, obRight)) {
+    state = 0;
+    bitSet(state,backwards);
+  }// 3 without back
+  else if (bitRead(flag, obFront) && bitRead(flag, obRight)) {
+    state = 0;
+    bitSet(state, backwards);
+  }// front and right obstacle
+  else if (bitRead(flag, obBack) && bitRead(flag, obFront)) {
+    state = 0;
+    bitSet(state,rightwards);
+  }// front and back
+  else if (bitRead(flag, obLeft) && bitRead(flag, obFront)) {
+    state = 0;
+    bitSet(state,backwards);
+  }//left and front
+  else if (bitRead(flag, obBack) && bitRead(flag, obRight)) {
+    state = 0;
+    bitSet(state,forwards);
+  }// right and back
+  else if (bitRead(flag, obLeft) && bitRead(flag, obRight)) {
+    state = 0;
+    bitSet(state,forwards);
+  }//left and right
+  else if (bitRead(flag, obBack) && bitRead(flag, obLeft)) {
+    state = 0;
+    bitSet(state, forwards);
+  }// back and left
+  else if (bitRead(flag, obBack)) {
+    state = 0;
+    bitSet(state, forwards);
+  }//back obstacle
+  else if(bitRead(flag, obFront)){
+    state = 0;
+    bitSet(state,forwards);
+  }//front
+  else if (bitRead(flag, obLeft)){
+    state=0;
+    bitSet(state,rightwards);
+  }//right
+  else if (bitRead(flag, obRight)) {
+    state = 0;
+    bitSet(state, leftwards);
+  }//left
+}
+
+
+void updateSensors(){
+  flag = 0;
+  state = 0;
+  // bitSet(state,forward);
+  updateIR();
+  // sonarRead();
+  // agressive_state();
+  shy_state();
+}
 
 
 /*
@@ -548,6 +738,7 @@ void pivot(int direction, float spins) {
   steppers.runSpeedToPosition();
   runToStop();
 }
+
 
 /*
   It turns the robot in the given direction a given number of revolutions, with the axis of rotation in the center of the robot.
@@ -593,7 +784,6 @@ void spin(int direction, double spins) {
   The outer wheel always has a speed of 800 and the inner wheel speed is proportional to the ratio of the distances
   the inner and outer wheel travel.
 
-
   @param direction clockwise (0) or counterclockwise (1) direction
   @param spins number of full revolutions to execute
   @param diameter diameter of the turn to execute
@@ -605,27 +795,21 @@ float s2 = (diameter/2) * ang;      // Inner circumference travelled by the inne
 float s1 = s2 + (width * ang);      // Outer circumference travelled by the outer wheel in inches
 float p2 = s2 * (912/12);    // Inner circumference travelled by the inner wheel in steps
 float p1 = s1 * (912/12);    // Outer circumference travelled by the outer wheel in steps
-
 float speed = 800;                  // Speed of outer wheel
-
 float new_speed1 = speed;           // Speed of outer wheel
 float new_speed2 = speed * (p2/p1); // Speed of inner wheel, proportional to the circuference
-
-
 if (direction == 1) { // Clockwise rotation
   stepperLeft.move(p1);
   stepperRight.move(p2);
   stepperLeft.setSpeed(new_speed1);
   stepperRight.setSpeed(new_speed2);
-
 }
 
 else if (direction == 0){  // Counter-clockwise rotation
   stepperLeft.move(p2);
   stepperRight.move(p1);
   stepperLeft.setSpeed(new_speed2);
-  stepperRight.setSpeed(new_speed1);
-  
+  stepperRight.setSpeed(new_speed1); 
 }
 steppers.runSpeedToPosition();
 }
@@ -637,7 +821,7 @@ steppers.runSpeedToPosition();
   adjusted experimentally.
   @param distance distance to travel in feet.
 */
-void forward(float distance) {
+void Goforward(float distance) {
   float currentL = encoder[0];    //Set initial variables for left and right motor encoders
   float currentR = encoder[1];
   while (encoder[0] < currentL + distance*45 || encoder[1] < currentR + distance * 46) {    //While loop goes reads the encoders and keeps running till it reaches the length
@@ -657,13 +841,14 @@ void forward(float distance) {
   @param distance distance to travel in feet.
 */
 void reverse(int distance) {
-  int speed = 800;
-  distance = -distance*912;           // 912 is the number of pulses per feet
-  stepperLeft.move(distance);         // Sets the distance to move for the left motor
-  stepperRight.move(distance);        // Sets the distance to move for the right motor
-  stepperLeft.setSpeed(speed);        // Sets the velocity to move for the left motor
-  stepperRight.setSpeed(speed);       // Sets the velocity to move for the right motor
-  steppers.runSpeedToPosition();      // Moves the motors at given speed
+  float currentL = encoder[0];    //Set initial variables for left and right motor encoders
+  float currentR = encoder[1];
+  while (encoder[0] < currentL + distance*45 || encoder[1] < currentR + distance * 46) {    //While loop goes reads the encoders and keeps running till it reaches the length
+    stepperLeft.setSpeed(-600);        //Set speed for the motors 
+    stepperRight.setSpeed(-600);
+    stepperLeft.run();                //make the motors run
+    stepperRight.run();
+  }
 }
 /*
   It stops both motors.
@@ -740,7 +925,7 @@ void goToGoal(float x, float y) {
   }
   float disToTravel = sqrt(x*x+y*y);            // Calculates the distance to travel using the pythagoras theorem
   goToAngle(angle);                             // Uses the goToAngle to pivot to the appropiate direction
-  forward(disToTravel);                         // Moves the distance to the goal
+  Goforward(disToTravel);                         // Moves the distance to the goal
 }
 
 
@@ -753,78 +938,82 @@ It uses the forward(), goToAngle()
 */
 
 void square(int len) {
-  forward(len);       //This function calls the forward and go to angle function 4 times to complete a square
+  Goforward(len);       //This function calls the forward and go to angle function 4 times to complete a square
   goToAngle(90);
 
-  forward(len);
+  Goforward(len);
   goToAngle(90);
 
-  forward(len);
+  Goforward(len);
   goToAngle(90);
 
-  forward(len);
+  Goforward(len);
   goToAngle(90);
 
 }
 
-void obstacle_avoid_forward() {
-  // Serial.print("outside while");
-  // int dist = sonarReadL();
-  while (true){
-    // Serial.println("0");
-    stepperLeft.setSpeed(500);
-    stepperRight.setSpeed(500);
-    stepperLeft.run();
-    stepperRight.run();
-    // Serial.println("1");
+void moveRobot() {
+  if(bitRead(state, collide)) {
+    stop();
+    // Serial.println("Robot stop!");
+    digitalWrite(redLED, HIGH);
+  }
+  else if (bitRead(state, forwards))
+  {
     digitalWrite(redLED, LOW);
-    // Serial.println("2");
-    stepperLeft.setSpeed(600);
-    // Serial.println("3");
-    stepperRight.setSpeed(600);
-    // Serial.println("4");
-    // forward(0.1);
-    // Serial.println("5");
-    // Serial.println(dist);
-    // Serial.println("6");
-    int dist = sonarReadL();
-    // delay(1000);
-    while(dist < 5){
-      delay(500);
-      digitalWrite(redLED, HIGH);
-      dist = sonarReadL();
-      stepperLeft.setSpeed(0);
-      stepperRight.setSpeed(0);
-      stepperLeft.run();
-      stepperRight.run();
-      // Serial.println(dist);
-    }//end while(dist<200)
-  }//end while(true)
+    step_and_run(800);
+    // Serial.println("Going forward!");
+  }
+  else if (bitRead(state,backwards)){
+    digitalWrite(redLED, LOW);
+    step_and_run(-800);
+  }
+  else if (bitRead(state,rightwards)) {
+    digitalWrite(redLED, LOW);
+    spin(1, 0.25);
+    bitClear(state,rightwards); bitSet(state,forwards);
+  }
+  else if (bitRead(state,leftwards)) {
+    digitalWrite(redLED, LOW);
+    spin(0, 0.25);
+    bitClear(state,rightwards); bitSet(state,forwards);
+  }
+
+  
 }
 
-void obstacle_avoid_reverse() {
-  // Serial.print("outside while");
-  // int dist = sonarReadL();
-  while (true){
-    int dist = sonarReadL();
-    digitalWrite(redLED, LOW);
-    stepperLeft.setSpeed(600);
-    stepperRight.setSpeed(600);
-    forward(0.1);
-    Serial.println(dist);
-    // delay(1000);
-    while(dist < 5){
-      delay(500);
-      digitalWrite(redLED, HIGH);
-      dist = sonarReadL();
-      stepperLeft.setSpeed(0);
-      stepperRight.setSpeed(0);
-      stepperLeft.run();
-      stepperRight.run();
-      // Serial.println(dist);
-    }//end while(dist<200)
-  }//end while(true)
+
+void wander(){
+  int n = rand() % 6;
+  Serial.println(n);
+  // state = 0;
+  if (n == 0){
+    int m = rand() % 3;
+    Goforward(m);
+  }//end if 0
+  else if (n == 1) {
+    int m = rand() % 3;
+    reverse(m);
+  }//end if 1
+  else if (n == 2) {
+    int m = rand() % 2;
+    turn(1, m, 10);
+  }//end if 2
+  else if (n == 3) {
+    int m = rand() % 2;
+    turn(0, m, 10);
+  }//end if 3
+  else if (n == 4) {
+    int m = rand() % 2;
+    pivot(0, m);
+  }//end if 4
+  else if (n == 5) {
+    int m = rand() % 2;
+    pivot(1, m);
+  }//end if 5
 }
+
+
 
 
 
@@ -832,6 +1021,7 @@ void obstacle_avoid_reverse() {
 // MAIN
 void setup()
 {
+  
   int baudrate = 9600;        //serial monitor baud rate'
   int BTbaud = 9600;          // HC-05 default speed in AT command more
   init_stepper();             //set up stepper motor
@@ -841,6 +1031,11 @@ void setup()
 
   BTSerial.begin(BTbaud);     //start Bluetooth communication
   Serial.begin(baudrate);     //start serial monitor communication
+
+  Timer1.initialize(1000000);
+  Timer1.attachInterrupt(updateSensors);
+
+
 
   while (!Serial)
     delay(10); // will pause until serial console opens
@@ -852,6 +1047,8 @@ void setup()
   Serial.println("Robot starting...");
   Serial.println("");
   delay(pauseTime); //always wait 2.5 seconds before the robot moves
+
+
 }
 
 
@@ -859,8 +1056,11 @@ void loop()
 {
   //uncomment each function one at a time to see what the code does
   // Serial.println(" running this file");
+  // wander();
+  // updateSensors();
+  // shy_state();
+  moveRobot();
   
-  obstacle_avoid_forward();
 
   // move1();                     //call move back and forth function
   // move2();                     //call move back and forth function with AccelStepper library functions
