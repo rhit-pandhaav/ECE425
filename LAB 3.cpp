@@ -784,6 +784,13 @@ void wallP() {
 
   float left_rotation = one_rotation * (abs(li_cerror)/3 + li_derror/10);
   float right_rotation = one_rotation * (abs(ri_cerror)/3 + ri_derror/10);
+  //WORK ON OUTSIDE WALL (STILL NEED TO IMPLEMENT SONAR SENSORS)
+  // Implement LEDs
+  // If it is following the right wal and it stops seeing the wall on the right sonar, then turn right to make the outside corner.
+  // If (sensor right and not sonar right ) {
+  //   turn right
+  // }
+  // Smae for left side
 
 
   if (bitRead(state, fright)) {
