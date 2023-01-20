@@ -167,8 +167,25 @@ float ri_derror;  //right ir current error
 float left_derror;   //difference between left front and back sensor, this may be useful for adjusting the turn angle
 float right_derror;  //difference between right front and back sensor, this may be useful for adjusting the turn angle
 
-float derror;       //difference between left and right error to center robot in the hallway
 float prev_left = 0;
+float prev_right = 0;
+
+float left_error;
+float right_error;
+
+float hallIR_left;
+float hallIR_right;
+float hallS_left;
+float hallS_right;
+
+float left_perror=0;
+float right_perror=0;
+
+float error;         // difference between left and right error to center robot in the hallway
+float hall_perror = 0;    // previous error for hallway
+float derror;        // diffrence betwen error and previous error in hallway
+
+
 
 #define baud_rate 9600  //set serial communication baud rate
 
@@ -269,8 +286,8 @@ void pivot(int rot, int dir) {
 
 /*robot spin function */
 void spin(int rot, int dir) {
-  stepperLeft.setMaxSpeed(robot_spd*2);
-  stepperRight.setMaxSpeed(robot_spd*2);
+  stepperLeft.setMaxSpeed(robot_spd*3);
+  stepperRight.setMaxSpeed(robot_spd*3);
   long positions[2];                                    // Array of desired stepper positions
   stepperRight.setCurrentPosition(0);                   //reset right motor to position 0
   stepperLeft.setCurrentPosition(0);                    //reset left motor to position 0
@@ -304,6 +321,7 @@ void stop() {
    stop or change movement. This function will have the robot follow the wall if it is within 4 to 6 inches from the wall by moving forward and turn on the
    controller if it is outside that band to make an adjustment to get back within the band.
 */
+
 void wallBang() {
   // Serial.print("\nWallBang: li_cerror ri_cerror\t");
   // Serial.print(li_cerror); Serial.print("\t");
@@ -322,7 +340,7 @@ void wallBang() {
     }
     else {
       //Serial.println("rt wall: adjust turn angle based upon error");
-      if (ri_cerror < 0 && rs_curr < 1000) {          //negative error means too close
+      if (ri_cerror < 0) {          //negative error means too close
         // Serial.println("\trt wall: too close turn left");
         pivot(quarter_rotation, 1);      //pivot left
         pivot(quarter_rotation, 0);   //pivot right to straighten up
@@ -331,7 +349,7 @@ void wallBang() {
         digitalWrite(ylwLED, HIGH);
         // digitalWrite(redLED, LOW);
       }
-      else if (ri_cerror > 0 && rs_curr > 500) {     //positive error means too far
+      else if (ri_cerror > 0) {     //positive error means too far
         // Serial.println("\trt wall: too far turn right");
         pivot(quarter_rotation, 1);      //pivot right
         pivot(quarter_rotation, 0);   //pivot left to straighten up
@@ -361,7 +379,7 @@ void wallBang() {
     }
     else {
       //Serial.println("lt wall detected: adjust turn angle based upon error");
-      if (li_cerror < 0 && ls_curr < 1000) { //negative error means too close
+      if (li_cerror < 0) { //negative error means too close
         // Serial.println("\tlt wall: too close turn right");
         pivot(quarter_rotation, 1);      //pivot right
         pivot(quarter_rotation, 0);   //pivot left
@@ -371,7 +389,7 @@ void wallBang() {
         // digitalWrite(redLED, LOW);
 
       }
-      else if (li_cerror > 0 && ls_curr > 500)  { //positive error means too far
+      else if (li_cerror > 0)  { //positive error means too far
         // Serial.println("\tlt wall: too far turn left");
         pivot(quarter_rotation, 1);      //pivot left
         pivot(quarter_rotation, 0);   //pivot right
@@ -412,7 +430,7 @@ void wallBang() {
     stop();
     delay(500);
     //reverse(half_rotation);
-    spin(half_rotation, 0);
+    pivot(half_rotation, 0);
     forward(one_rotation);
     pivot(quarter_rotation,1);
     // pivot(1,0.25);
@@ -456,15 +474,28 @@ for (int k =0; k<4; k++) {                      //Take the average of 5 readings
   left = (1447/(left-29) - 1);
   right = (1379/(right-59) - 1);
 
-  // if (left > 0) {
-  //   prev_left = left;
-  // }
-  // else{
-  //   left = prev_left;
-  // }
-  // Serial.print("Left IR: "); Serial.println(left); 
+  hallIR_left = left;
+  hallIR_right = right;
 
-  if(front < 14 && front > 0) {                    //If an object is between 0 to 5 inches of the front sensor, set a flag on obFront bit and turn on red LED, otherwise, clear the flag
+  // Serial.print("IR Left: "); Serial.print(left); Serial.print(" IR Right: "); Serial.println(right);
+
+  if (left > 0) {
+    prev_left = left;
+  }
+  else{
+    left = prev_left;
+  }
+  // Serial.print("Left IR: "); Serial.println(left);
+
+  if (right > 0) {
+    prev_right = right;
+  }
+  else{
+    right = prev_right;
+  }
+
+
+  if(front < 10 && front > 0) {                    //If an object is between 0 to 5 inches of the front sensor, set a flag on obFront bit and turn on red LED, otherwise, clear the flag
     digitalWrite(redLED, HIGH);
     digitalWrite(grnLED,LOW);
     bitSet(flag, obFront);
@@ -505,40 +536,9 @@ for (int k =0; k<4; k++) {                      //Take the average of 5 readings
   }
 
   
-  // Serial.print(" Right IR: "); Serial.println(right);
+  // Serial.print(" Right IR: "); Serial.print(right);
+  // Serial.print(" Left IR: "); Serial.println(left);
 
-
-  // if (right > irMin - 50) {
-  //   //Serial.println("\t\tset right obstacle");
-  //   bitSet(flag, obRight);            //set the right obstacle
-  // }
-  // else
-  //   bitClear(flag, obRight);          //clear the right obstacle
-
-  // if (left > irMin - 50) {
-  //   //Serial.println("\t\tset left obstacle");
-  //   bitSet(flag, obLeft);             //set the left obstacle
-  // }
-  // else
-  //   bitClear(flag, obLeft);           //clear the left obstacle
-
-  // if (front > irMax - 50) {
-  //   //Serial.println("set front obstacle bit");
-  //   bitSet(flag, obFront);            //set the front obstacle
-  // }
-  // else
-  //   bitClear(flag, obFront);          //clear the front obstacle
-
-  //  if (back > irMin - 25) {
-  //    //Serial.println("set back obstacle bit");
-  //    bitSet(flag, obRear);             //set the back obstacle
-  //  }
-  //  else
-  //    bitClear(flag, obRear);           //clear the back obstacle
-
-  ///////////////////////update variables
-  //Serial.print(left);Serial.print("\t");
-  //Serial.println(right);
 
 
   ri_curr = right;             //log current sensor reading [right IR]
@@ -589,6 +589,9 @@ for (int k =0; k<4; k++) {                      //Take the average of 5 readings
   }
 }
 
+
+
+
 /*
    This is a sample updateSonar() function, the description and code should be updated to take an average, consider all sensors and reflect
    the necesary changes for the lab requirements.
@@ -615,12 +618,41 @@ void updateSonar() {
   pinMode(snrLeft, INPUT);      //set pin as input with duration as reception
   left = pulseIn(snrLeft, HIGH);//measures how long the pin is high
 
+
+  // left = left/2;          //Get the average of 2 readings of the left sonar for accuracy
+  left = (left-78)/157;   //Change the value into inches
+  // right = right/2;          //Get the average of 2 readings of the right sonar for accuracy
+  right = (right-240)/160;  //Change the value into inches
+  hallS_right = right;    //Right and left sensor values for hallway follow
+  hallS_left = left;
+
+  // Serial.print("Sonar Left: "); Serial.print(left); Serial.print(" Sonar Right: "); Serial.println(right);
+
+  if(left < 10 && left > 0) {                    //If an object is between 0 to 5 inches of the left sensor, set a flag on obLeft bit and turn on red LED, otherwise, clear the flag
+    bitSet(flag, obFLeft);
+    // Serial.println("Left Sonar detected");
+  }
+  else {
+    bitClear(flag, obFLeft);
+
+  }
+
+  if(right < 10 && right > 0) {                    //If an object is between 0 to 5 inches of the right sensor, set a flag on obRight bit and turn on red LED, otherwise, clear the flag
+    bitSet(flag, obFRight);
+  }
+  else {
+    bitClear(flag, obFRight);
+  }
+
+
   ///////////////////////update variables
   //  Serial.print(left); Serial.print("\t");
   //  Serial.println(right);
   rs_curr = right;             //log current sensor reading [right sonar]
+  
   if ((rs_curr > snrMax) || (rs_curr < snrMin))
     rs_cerror = rs_curr - snrMax;    //calculate current error (too far positive, too close negative)
+    // hallS_right = rs_curr - snrMax;
   else
     rs_cerror = 0;                  //set error to zero if robot is in dead band
   rs_derror = rs_cerror - rs_perror; //calculate change in error
@@ -636,17 +668,17 @@ void updateSonar() {
 
   ///// print sonar data
   if (right > 0 && right < 1000) { //filter out garbage readings
-    //    Serial.print("right sonar current = \t"); Serial.print(rs_curr);
-    //    Serial.print("\tright sonar cerror = \t"); Serial.print(rs_cerror);
-    //    Serial.print("\tright sonar derror = \t"); Serial.print(rs_derror);
-    //    Serial.print("\tright sonar perror = \t"); Serial.println(rs_perror);
+      //  Serial.print("right sonar current = \t"); Serial.println(rs_curr);
+      //  Serial.print("\tright sonar cerror = \t"); Serial.print(rs_cerror);
+      //  Serial.print("\tright sonar derror = \t"); Serial.print(rs_derror);
+      //  Serial.print("\tright sonar perror = \t"); Serial.println(rs_perror);
   }
 
   if (left > 0 && left < 1000) { //filter out garbage readings
-    //    Serial.print("left sonar current = \t"); Serial.print(ls_curr);
-    //    Serial.print("\tleft sonar cerror = \t"); Serial.print(ls_cerror);
-    //    Serial.print("\tleft sonar derror = \t"); Serial.print(ls_derror);
-    //    Serial.print("\tleft sonar perror = \t"); Serial.println(ls_perror);
+      //  Serial.print("left sonar current = \t"); Serial.println(ls_curr);
+      //  Serial.print("\tleft sonar cerror = \t"); Serial.print(ls_cerror);
+      //  Serial.print("\tleft sonar derror = \t"); Serial.print(ls_derror);
+      //  Serial.print("\tleft sonar perror = \t"); Serial.println(ls_perror);
   }
 }
 
@@ -707,12 +739,49 @@ void updateSonar2() {
    store previous error to calculate derror = curr_sensor-prev_sensor, side_derror = side front sensor - side back sensor
 */
 void updateError() {
-  left_derror = ls_cerror - li_cerror; //difference between left front and back sensor, use threshold for robot mostly parallel to wall
-  right_derror = rs_cerror - ri_cerror; //difference between right front and back sensor, use threshold for robot mostly parallel to wall
-  //derror = ls_cerror - rs_cerror;//use sonar data for difference error
-  derror = li_cerror - ri_cerror; //use IR data for difference error
-  //  Serial.print("left derror\t"); Serial.print(left_derror);
-  //  Serial.print("\tright derror\t"); Serial.println(right_derror);
+  float hall_left; float hall_right;
+  if (ri_cerror < rs_cerror) {
+    right_error = ri_cerror;
+  }
+  else{
+    right_error = rs_cerror;
+  }
+
+  if (li_cerror < ls_cerror) {
+    left_error = li_cerror;
+  }
+  else {
+    left_error = ls_cerror;
+  }
+
+  if (hallIR_left < hallS_left) {
+    hall_left = hallIR_left;
+  }
+  else {
+    hall_left = hallS_left;
+  }
+
+  if (hallIR_right < hallS_right) {
+    hall_right = hallIR_right;
+  }
+  else {
+    hall_right = hallS_right;
+  }
+  
+  // left_derror = ls_cerror - li_cerror; //difference between left front and back sensor, use threshold for robot mostly parallel to wall
+  // right_derror = rs_cerror - ri_cerror; //difference between right front and back sensor, use threshold for robot mostly parallel to wall
+  
+  left_derror = left_error - left_perror;
+  right_derror = right_error - right_perror;
+  left_perror = left_error;
+  right_perror = right_error;
+  // derror = ls_cerror - rs_cerror;//use sonar data for difference error
+
+  // Hallway error
+  error = hall_left - hall_right; //use IR data for difference error
+  derror = error - hall_perror;
+  hall_perror = error;              // Make a new variable for left and right sensor error that is not set to zero between 4-6 inches.
+
 }
 
 /*
@@ -721,6 +790,7 @@ void updateError() {
 */
 void updateState() {
   if ((!bitRead(flag, obRight) && !bitRead(flag, obLeft))) { //no sensors triggered
+    // Serial.println("1");
     //set random wander bit
     // Serial.println("\tset random wander state");
     bitSet(state, wander);//set the wander state
@@ -729,7 +799,8 @@ void updateState() {
     bitClear(state, fleft);//clear follow wall state
     bitClear(state, center);//clear follow wall state
   }
-  else if (bitRead(flag, obRight) && !bitRead(flag, obLeft) ) {
+  else if ((bitRead(flag, obRight) || bitRead(flag, obFRight)) && (!bitRead(flag, obLeft) &&  !bitRead(flag, obFLeft)) ) {           // Follow Right wall
+    // Serial.println("2");
     // Serial.println("\tset follow right state");
     bitSet(state, fright);    //set RIGHT WALL state
     //clear all other bits
@@ -737,7 +808,9 @@ void updateState() {
     bitClear(state, fleft);   //clear follow wall state
     bitClear(state, center);  //clear follow wall state
   }
-  else if (bitRead(flag, obLeft) && !bitRead(flag, obRight) ) {
+  // else if (bitRead(flag, obRight) )
+  else if ((bitRead(flag, obLeft) || bitRead(flag, obFLeft))  &&  (!bitRead(flag, obRight) &&  !bitRead(flag, obFRight))) {         // Follow Left wall
+    // Serial.println("3");
     // Serial.println("\tset follow left state");
     bitSet(state, fleft);     //set left wall state
     //clear all other bits
@@ -745,7 +818,8 @@ void updateState() {
     bitClear(state, wander);  //clear wander state
     bitClear(state, center);  //clear follow wall state
   }
-  else if (bitRead(flag, obLeft) && bitRead(flag, obRight) ) {
+  else if ((bitRead(flag, obLeft) && bitRead(flag, obRight))  || (bitRead(flag, obFLeft) && bitRead(flag, obFRight))) {
+    // Serial.println("4");
     // Serial.println("\tset follow hallway state");
     bitSet(state, center);      //set the hallway state
     //clear all other bits
@@ -771,140 +845,155 @@ void updateSensors() {
   flag = 0;                             //clear all sensor flags
   state = 0;                            //clear all state flags
   updateIR();                           //update IR readings and update flag variable and state machine
-  // updateSonar();                        //update Sonar readings and update flag variable and state machine
-  //updateSonar2();                     //there are 2 ways to read sonar data, this is the 2nd option, use whichever one works best for your hardware
+  updateSonar();                        //update Sonar readings and update flag variable and state machine
+  // updateSonar2();                     //there are 2 ways to read sonar data, this is the 2nd option, use whichever one works best for your hardware
   updateError();                        //update sensor current, previous, change in error
   updateState();                        //update State Machine based upon sensor readings
 }
 
-void wallP() {
-  // Serial.print("\nWallBang: li_cerror ri_cerror\t");
-  // Serial.print(li_cerror); Serial.print("\t");
-  // Serial.println(ri_cerror);
+void wallPD() {
 
-  float left_rotation = one_rotation * (abs(li_cerror)/3 + li_derror/10);
-  float right_rotation = one_rotation * (abs(ri_cerror)/3 + ri_derror/10);
-  //WORK ON OUTSIDE WALL (STILL NEED TO IMPLEMENT SONAR SENSORS)
-  // Implement LEDs
-  // If it is following the right wal and it stops seeing the wall on the right sonar, then turn right to make the outside corner.
-  // If (sensor right and not sonar right ) {
-  //   turn right
-  // }
-  // Smae for left side
-
+  float left_rotation = one_rotation * (abs(left_error)/3 - abs(left_derror)/10);
+  float right_rotation = one_rotation * (abs(right_error)/3 - abs(right_derror)/10);
+  digitalWrite(redLED, LOW);
+  digitalWrite(grnLED, LOW);
+  digitalWrite(ylwLED, LOW);
 
   if (bitRead(state, fright)) {
+    digitalWrite(redLED,HIGH);
+    digitalWrite(ylwLED,HIGH);
+    if (bitRead(flag, obRight) && !bitRead(flag,obFRight)) {
+      forward(two_rotation);
+      spin(three_rotation*4, 1);
+      forward(two_rotation);
+    }
     if (bitRead(flag, obFront)) { //check for a front wall before moving
       //make left turn if wall found
-      reverse(one_rotation + quarter_rotation);              //back up
+      digitalWrite(redLED, HIGH);
+      digitalWrite(grnLED, HIGH);
+      digitalWrite(ylwLED, LOW);
+      reverse(two_rotation);              //back up
+      spin(three_rotation*4, 0);              //turn left
       spin(three_rotation*4, 0);              //turn left
     }
-    if (ri_cerror == 0) {                 //no error, robot in deadband
+    if (right_error == 0) {                 //no error, robot in deadband
       // Serial.println("right wall detected, drive forward");
       forward(three_rotation);            //move robot forward
-      // digitalWrite(redLED, LOW);
-      // digitalWrite(ylwLED, LOW);
+      digitalWrite(redLED, LOW);
+      digitalWrite(ylwLED, LOW);
+      digitalWrite(grnLED, LOW);
     }
     else {
-      //Serial.println("rt wall: adjust turn angle based upon error");
-      if (ri_cerror < 0) {          //negative error means too close
-        // Serial.println("\trt wall: too close turn left");
+      if (right_error < 0) {          //negative error means too close
+        digitalWrite(ylwLED, HIGH);
+        digitalWrite(redLED, LOW);
         pivot(right_rotation, 0);      //pivot left
         forward(one_rotation/10);
         pivot(right_rotation, 1);   //pivot right to straighten up
-        // pivot(1, 0.25);
-        // pivot(0,0.25);
-        // digitalWrite(ylwLED, HIGH);
-        // digitalWrite(redLED, LOW);
       }
-      else if (ri_cerror > 0) {     //positive error means too far
-        // Serial.println("\trt wall: too far turn right");
+      else if (right_error > 0) {     //positive error means too far
+        digitalWrite(redLED,HIGH);
+        digitalWrite(ylwLED, LOW);
         pivot(right_rotation, 1);      //pivot right
         forward(one_rotation/10);
         pivot(right_rotation, 0);   //pivot left to straighten up
-        // pivot(1,0.25);
-        // pivot(0,0.25);
-        // digitalWrite(ylwLED, LOW);
-        // digitalWrite(redLED, HIGH);
       }
     }
   }
-  else if (bitRead(state, fleft)  ) {
-      // Serial.println("2");
-
+  else if (bitRead(state, fleft)  ) {  // Follow left wall
+    // Serial.println("Follow left wall");
+    digitalWrite(ylwLED, HIGH);
+    digitalWrite(grnLED, HIGH);
+    if (bitRead(flag, obLeft) && !bitRead(flag,obFLeft)) {           //Create new state for outside wall and implement this code there
+      forward(two_rotation);
+      spin(three_rotation * 4, 0);          //Incease the spins
+      forward(two_rotation);
+      // Serial.println("Left Sonar lost");
+    }
     if (bitRead(flag, obFront)) { //check for a front wall before moving forward
       //make right turn if wall found
       // Serial.print("left wall: front corner ");
       //make left turn if wall found
-      reverse(one_rotation + quarter_rotation);              //back up
-      spin(three_rotation*2, 1);              //turn right
+      digitalWrite(redLED, HIGH);
+      digitalWrite(grnLED, HIGH);
+      digitalWrite(ylwLED, LOW);
+      reverse(two_rotation);              //back up
+      spin(three_rotation*4, 1);              //turn right
+      spin(three_rotation*4, 1);              //turn right
     }
-    if (li_cerror == 0) {           //no error robot in dead band drives forward
+    if (left_error == 0) {           //no error robot in dead band drives forward
       // Serial.println("lt wall detected, drive forward");
       forward(two_rotation);      //move robot forward
-      // digitalWrite(redLED, LOW);
-      // digitalWrite(ylwLED, LOW);
     }
     else {
       //Serial.println("lt wall detected: adjust turn angle based upon error");
-      if (li_cerror < 0) { //negative error means too close
-        // Serial.println("\tlt wall: too close turn right");
+      if (left_error < 0) { //negative error means too close
+        digitalWrite(ylwLED,HIGH);
+        digitalWrite(redLED, LOW);
         pivot(left_rotation, 1);      //pivot right
         forward(one_rotation/10);
         pivot(left_rotation, 0);   //pivot left
-        // pivot(1,0.25);
-        // pivot(0,0.25);
-        // digitalWrite(ylwLED, HIGH);
-        // digitalWrite(redLED, LOW);
-
       }
-      else if (li_cerror > 0)  { //positive error means too far
-        // Serial.println("\tlt wall: too far turn left");
+      else if (left_error > 0)  { //positive error means too far
+        digitalWrite(redLED,HIGH);
+        digitalWrite(ylwLED,LOW);
         pivot(left_rotation, 0);      //pivot left
         forward(one_rotation/10);
         pivot(left_rotation, 1);   //pivot right
-        // pivot(1,0.25);
-        // pivot(0,0.25);
-        // digitalWrite(ylwLED, LOW);
-        // digitalWrite(redLED, HIGH);
       }
     }
   }
   else if (bitRead(state, center) ) {//follow hallway
-    // Serial.println("3");
+    // Serial.println("Entered Hallway");
+    if(bitRead(flag, obFront)) {
+      spin(three_rotation * 4, 0);
+      spin(three_rotation * 4, 0);
+      spin(three_rotation * 4, 0);
+      spin(three_rotation * 4, 0);
+      forward(half_rotation);
+    }
+    
+    float hallway_rotation = one_rotation * (abs(error)/3 - abs(derror)/5);
 
-    if (((ri_cerror == 0) && (li_cerror == 0)) || (derror == 0)) {
-      // Serial.println("hallway detected, drive forward");
+
+    Serial.print("Error: "); Serial.print(error); Serial.print(" derror: "); Serial.println(derror);
+    Serial.print(" Rotation value: "); Serial.println(hallway_rotation);
+    // Serial.println("Following Hallway");
+    // Serial.print("Error: "); Serial.println(error);
+    if (((error < 2 && error > -2))) {
       forward(one_rotation);          //drive robot forward
     }
     else {
       //Serial.println("hallway detected: adjust turn angle based upon error");
       //try to average the error between the left and right to center the robot
-      if (derror > 0) {
-        spin(quarter_rotation, 1);        //spin right, the left error is larger
-        pivot(quarter_rotation, 0);       //pivot left to adjust forward
-        // pivot(0,0.25);
+      if (error > 0) {
+        pivot(hallway_rotation, 0);        //spin right, the left error is larger
+        forward(half_rotation/5);
+        pivot(hallway_rotation, 1);       //pivot left to adjust forward
       }
       else
       {
-        spin(quarter_rotation, 0);        //spin left the right error is larger
-        pivot(quarter_rotation, 1);       //pivot right to adjust forward
-        // pivot(1,0.25);
+        pivot(hallway_rotation, 1);        //spin left the right error is larger
+        forward(half_rotation/5);
+        pivot(hallway_rotation, 0);       //pivot right to adjust forward
       }
     }
   }
   else  if (bitRead(state, wander)) {
-      // Serial.println("4");
-
     // Serial.println("nothing to see here, I need to look for a wall");
+    if(bitRead(flag, obFront)){
+      spin(three_rotation * 4, 0);
+      spin(three_rotation * 4, 0);
+    }
     stop();
     delay(500);
-    //reverse(half_rotation);
-    spin(half_rotation, 0);
+    digitalWrite(grnLED, HIGH);
+    digitalWrite(redLED,LOW);
+    digitalWrite(ylwLED,LOW);
+    pivot(half_rotation, 0);
     forward(one_rotation);
     pivot(quarter_rotation,1);
   }
-      
 }
 
 
@@ -943,8 +1032,11 @@ void setup()
 void loop()
 {
   // wallBang();           //wall following bang-bang control
-  wallP();            //wall following proportional control
-  Serial.print("Left error: "); Serial.print(li_cerror); Serial.print(" Right error: "); Serial.println(ri_cerror);
+  wallPD();            //wall following proportional control
+  // Serial.print("State: "); Serial.println(state, BIN);
+  // Serial.print("Left error: "); Serial.print(li_cerror); Serial.print(" Right error: "); Serial.println(ri_cerror);
+  // updateSonar();
+  
   //wallPD();           //wall following PD control
   //follow_hallway();   //robot moves to follow center of hallway when two walls are detected
   //wander();           //random wander behavior
