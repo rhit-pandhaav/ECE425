@@ -132,7 +132,6 @@ volatile byte state2 = 0;
 #define fear 1
 #define explore 2
 #define aggressive 3
-#define wander 4
 
 // define layers of subsumption architecture that are active [hallway Wall Wander Avoid]
 byte layers = 4;
@@ -303,7 +302,8 @@ void stop() {
 */
 
 void PRRead() {
-  float left, right;
+  float left;
+  float right;
   left = analogRead(PR_Left);
   right = analogRead(PR_Right);
 
