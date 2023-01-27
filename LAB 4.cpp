@@ -132,6 +132,7 @@ volatile byte state2 = 0;
 #define fear 1
 #define explore 2
 #define aggressive 3
+#define wander 4
 
 // define layers of subsumption architecture that are active [hallway Wall Wander Avoid]
 byte layers = 4;
@@ -186,6 +187,9 @@ float derror;           // diffrence betwen error and previous error in hallway
 
 float Left_light;     //Left PR values of light
 float right_light;    //Right PR values for light
+
+float left_thres;
+float right_thres;
 
 #define baud_rate 9600  // set serial communication baud rate
 
@@ -786,7 +790,7 @@ void moveRobot() {
 
 
 void light_follow() {         //Do Love (motor near the light moves slower) // explorer(motor not close to the light moves slower)
-  bitSet(state2, aggressive);
+  bitSet(state2, love);
 
   float left_speed = robot_spd;
   float right_speed = robot_spd;
@@ -798,7 +802,8 @@ void light_follow() {         //Do Love (motor near the light moves slower) // e
   float left = analogRead(PR_Left);
   float right = analogRead(PR_Right);
 
-  
+  Serial.print("Left: "); Serial.print(left + 100); Serial.print(" Right: "); Serial.println(right);
+
   if (bitRead(state2, fear)) {
     Serial.print("Left: "); Serial.print(left + 100); Serial.print(" Right: "); Serial.println(right);
     Serial.println(state2, BIN);
@@ -888,10 +893,169 @@ void light_follow() {         //Do Love (motor near the light moves slower) // e
   }
 
 
+  if (bitRead(state2, love)) {
+    Serial.print("Left: "); Serial.print(left + 100); Serial.print(" Right: "); Serial.println(right);
+    Serial.println(state2, BIN);
+    if((left > left_thres || right > right_thres)) {    //Light detected
+      if(left + 100 > right) {
+        left_speed = left_speed/((left+100)/500);
 
+        stepperLeft.setMaxSpeed(left_speed);
+        stepperRight.setMaxSpeed(right_speed);
+        long positions[2];                                    // Array of desired stepper positions
+        stepperRight.setCurrentPosition(0);                   // reset right motor to position 0
+        stepperLeft.setCurrentPosition(0);                    // reset left motor to position 0
+        positions[0] = stepperRight.currentPosition() + one_rotation;  // right motor absolute position
+        positions[1] = stepperLeft.currentPosition() + one_rotation/((left+100)/500);   // left motor absolute position
+
+        stepperRight.move(positions[0]);  // move right motor to position
+        stepperLeft.move(positions[1]);   // move left motor to position
+        bitSet(state, movingL);           // move left wheel
+        bitSet(state, movingR);           // move right wheel
+        runToStop();                      // run until the robot reaches the target
+      }
+      else {
+        right_speed = right_speed/(right/500);
+
+        stepperLeft.setMaxSpeed(left_speed);
+        stepperRight.setMaxSpeed(right_speed);
+        long positions[2];                                    // Array of desired stepper positions
+        stepperRight.setCurrentPosition(0);                   // reset right motor to position 0
+        stepperLeft.setCurrentPosition(0);                    // reset left motor to position 0
+        positions[0] = stepperRight.currentPosition() + one_rotation/(right/500);  // right motor absolute position
+        positions[1] = stepperLeft.currentPosition() + one_rotation;   // left motor absolute position
+
+        stepperRight.move(positions[0]);  // move right motor to position
+        stepperLeft.move(positions[1]);   // move left motor to position
+        bitSet(state, movingL);           // move left wheel
+        bitSet(state, movingR);           // move right wheel
+        runToStop();                      // run until the robot reaches the target
+
+      }
+
+    }
+  }
+
+
+  if (bitRead(state2, explore)) {
+    Serial.print("Left: "); Serial.print(left + 100); Serial.print(" Right: "); Serial.println(right);
+    Serial.println(state2, BIN);
+    if((left > left_thres || right > right_thres)) {    //Light detected
+      if(left + 100 > right) {
+        right_speed = right_speed/((left+100)/500);
+
+        stepperLeft.setMaxSpeed(left_speed);
+        stepperRight.setMaxSpeed(right_speed);
+        long positions[2];                                    // Array of desired stepper positions
+        stepperRight.setCurrentPosition(0);                   // reset right motor to position 0
+        stepperLeft.setCurrentPosition(0);                    // reset left motor to position 0
+        positions[0] = stepperRight.currentPosition() + one_rotation/((left+100)/500);  // right motor absolute position
+        positions[1] = stepperLeft.currentPosition() + one_rotation;   // left motor absolute position
+
+        stepperRight.move(positions[0]);  // move right motor to position
+        stepperLeft.move(positions[1]);   // move left motor to position
+        bitSet(state, movingL);           // move left wheel
+        bitSet(state, movingR);           // move right wheel
+        runToStop();                      // run until the robot reaches the target
+      }
+      else {
+        left_speed = left_speed/(right/500);
+
+        stepperLeft.setMaxSpeed(left_speed);
+        stepperRight.setMaxSpeed(right_speed);
+        long positions[2];                                    // Array of desired stepper positions
+        stepperRight.setCurrentPosition(0);                   // reset right motor to position 0
+        stepperLeft.setCurrentPosition(0);                    // reset left motor to position 0
+        positions[0] = stepperRight.currentPosition() + one_rotation;  // right motor absolute position
+        positions[1] = stepperLeft.currentPosition() + one_rotation/(right/500);   // left motor absolute position
+
+        stepperRight.move(positions[0]);  // move right motor to position
+        stepperLeft.move(positions[1]);   // move left motor to position
+        bitSet(state, movingL);           // move left wheel
+        bitSet(state, movingR);           // move right wheel
+        runToStop();                      // run until the robot reaches the target
+
+      }
+
+    }
+  }
 
 }
 
+
+void Light_track() {
+
+  float left_speed = robot_spd;
+  float right_speed = robot_spd;
+  digitalWrite(redLED, LOW);
+  digitalWrite(ylwLED, LOW);
+  digitalWrite(grnLED, LOW);
+  float left = analogRead(PR_Left);
+  float right = analogRead(PR_Right);
+
+
+  Serial.println(state2, BIN);
+  if((left > left_thres || right > right_thres)) {    //Light detected
+    if (bitRead(flag, obFront)) {       // check for a front wall before wondering
+      reverse(one_rotation);
+      spin(three_rotation * 4, 0);      // Turn 90 degrees right
+      spin(three_rotation * 4, 0);
+    }
+
+
+    if(left + 100 > right) {
+      left_speed = left_speed/((left+100)/500);
+
+      stepperLeft.setMaxSpeed(left_speed);
+      stepperRight.setMaxSpeed(right_speed);
+      long positions[2];                                    // Array of desired stepper positions
+      stepperRight.setCurrentPosition(0);                   // reset right motor to position 0
+      stepperLeft.setCurrentPosition(0);                    // reset left motor to position 0
+      positions[0] = stepperRight.currentPosition() + one_rotation;  // right motor absolute position
+      positions[1] = stepperLeft.currentPosition() + one_rotation/((left+100)/500);   // left motor absolute position
+
+      stepperRight.move(positions[0]);  // move right motor to position
+      stepperLeft.move(positions[1]);   // move left motor to position
+      bitSet(state, movingL);           // move left wheel
+      bitSet(state, movingR);           // move right wheel
+      runToStop();                      // run until the robot reaches the target
+    }
+    else {
+      right_speed = right_speed/(right/500);
+
+      stepperLeft.setMaxSpeed(left_speed);
+      stepperRight.setMaxSpeed(right_speed);
+      long positions[2];                                    // Array of desired stepper positions
+      stepperRight.setCurrentPosition(0);                   // reset right motor to position 0
+      stepperLeft.setCurrentPosition(0);                    // reset left motor to position 0
+      positions[0] = stepperRight.currentPosition() + one_rotation/(right/500);  // right motor absolute position
+      positions[1] = stepperLeft.currentPosition() + one_rotation;   // left motor absolute position
+
+      stepperRight.move(positions[0]);  // move right motor to position
+      stepperLeft.move(positions[1]);   // move left motor to position
+      bitSet(state, movingL);           // move left wheel
+      bitSet(state, movingR);           // move right wheel
+      runToStop();                      // run until the robot reaches the target
+
+    }
+  }
+  else {
+    if (bitRead(flag, obFront)) {       // check for a front wall before wondering
+      reverse(one_rotation);
+      spin(three_rotation * 4, 0);      // Turn 90 degrees right
+      spin(three_rotation * 4, 0);
+    }
+    stop();
+    delay(500);
+    digitalWrite(grnLED, HIGH);  // Turn green LED on
+    digitalWrite(redLED, LOW);   // Turn red LED off
+    digitalWrite(ylwLED, LOW);   // Turn yellow LED off
+    pivot(half_rotation, 0);     // Pivot right
+    forward(one_rotation);       // Go forward
+    pivot(quarter_rotation, 1);  // Pivot left
+  }
+
+}
 
 
   
@@ -914,15 +1078,28 @@ void setup() {
   steppers.addStepper(stepperLeft);             // add left motor to MultiStepper
   digitalWrite(stepperEnable, stepperEnTrue);   // turns on the stepper motor driver
   digitalWrite(enableLED, HIGH);                // turn on enable LED
-  // Timer1.initialize(timer_int);                 // initialize timer1, and set a period in microseconds
-  // Timer1.attachInterrupt(updateSensors);        // attaches updateSensors() as a timer overflow interrupt
+  Timer1.initialize(timer_int);                 // initialize timer1, and set a period in microseconds
+  Timer1.attachInterrupt(updateSensors);        // attaches updateSensors() as a timer overflow interrupt
   Serial.begin(baud_rate);                      // start serial communication in order to debug the software while coding
   delay(1500);                                  // wait 3 seconds before robot moves
+
+  // Calibrate the light sensor
+  for (int k = 0; k < 5; k++) {
+    left_thres += analogRead(PR_Left);
+    right_thres += analogRead(PR_Right);
+    Serial.println(k);
+  }
+  left_thres = left_thres /5+100;
+  right_thres = right_thres/5+100; 
+  Serial.println(right_thres);
+  Serial.println(left_thres);
+  
 }
 
 void loop() {
   // moveRobot();  // wall following proportional control
   // PRRead();
-  light_follow();
+  // light_follow();
+  Light_track();
   // delay(500);
 }
