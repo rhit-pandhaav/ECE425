@@ -1056,17 +1056,17 @@ void Light_track() {
 }
 
 void GUItrack() {
-  if (GUItxt == "RIGHT") {
+  if (bitRead(msgState, btRight)) {
     spin(three_rotation * 4, 0);  // Turn 90 degrees right
     spin(three_rotation * 4, 0);
     forward(1);
-  } else if (GUItxt == "LEFT") {
+  } else if (bitRead(msgState, btLeft)) {
     spin(three_rotation * 4, 1);  // Turn 90 degrees right
     spin(three_rotation * 4, 1);
     forward(1);
-  } else if (GUItxt == "FORWARD") {
+  } else if (bitRead(msgState, btForwards)) {
     forward(1.5);
-  } else if (GUItxt == "REVERSE") {
+  } else if (bitRead(msgState, btBackwards)) {
     reverse(1.5);
   }
 }
@@ -1104,21 +1104,6 @@ void listenBluetooth() {
   }
 }
 
-void followCommands() {
-  if (bitRead(msgState, btForwards)) {
-    forwards(100);
-  }
-  if (bitRead(msgState, btBackwards) {
-        backwards(100);
-      })
-    if (bitRead(msgState, btLeft) {
-          turn(1, 1)
-              forwards(100);
-        })
-      if (bitRead(msgState, btRight) {
-            forwards(100);
-          })
-}
 
 void setup() {
   // stepper Motor set up
