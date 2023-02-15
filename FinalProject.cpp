@@ -1168,16 +1168,7 @@ void listenBluetooth() {
 void topo_follow() {
   bitSet(state, center);
   if(message.equalsIgnoreCase("LEFT")) {    
-    if (!(bitRead(flag, obLeft))){
-      bitClear(state, center);
-      bitSet(state, fleft);
-      // forward(0.4*one_rotation);
-      // bitClear(state, center);
-      // spin(one_rotation * 4, 1);
-      // spin(one_rotation*4, 1);
-      // forward(one_rotation);
-      message = "";
-    } //end of if left statement
+    intructions = 
   }
   else {
     bitSet(state, center);
