@@ -1105,42 +1105,11 @@ void GUItrack() {
 
 
 
-int position = 0;
-String array[] = {};
-
-void array_maker() {
-  // Serial.println("Message recieved 1");
-
-  
-  // while(1){
-  //   if (message.equalsIgnoreCase("END")){
-  //     break;
-  //   }
-
-  //   array[position] = message;
-  //   position++;
-  //   Serial.println("Message recieved 2");
-    
-  //   while (BTSerial.available()) {
-  //     char inChar = (char)BTSerial.read();
-  //     if (inChar == '\n') {
-  //       stringComplete = true;
-  //     } else {
-  //       message += inChar;
-  //     }
-  //     // Serial.println("MSG Recv 3");
-  //   }
-  // }
-  // for (int i = 0; i < sizeof(array); i++){
-  //   Serial.println(array[i]);
-  // }
-}
 
 
 
 
 void listenBluetooth() {
-  // message = "";
   while (BTSerial.available()) {
     char inChar = (char)BTSerial.read();
     if (inChar == '\n') {
@@ -1151,7 +1120,7 @@ void listenBluetooth() {
   }  
 
   if (stringComplete) {
-    // Serial.print("msg: "); Serial.println(message);
+    Serial.print("msg: "); Serial.println(message);
     bitClear(msgState, btForwards);
     bitClear(msgState, btBackwards);
     bitClear(msgState, btLeft);
@@ -1159,43 +1128,34 @@ void listenBluetooth() {
     bitClear(msgState, rest);
     digitalWrite(6, HIGH);  // Turn LED on to check
     message.toUpperCase();
-    // array[position] = message;
-    // position++;
     if (message.equalsIgnoreCase("LEFT")) {
       bitSet(msgState, btLeft);
       spin(three_rotation * 4, 0);  // Turn 90 degrees right
       spin(three_rotation * 4, 0);
       forward(one_rotation);
-      message = "";
     }
     if (message.equalsIgnoreCase("RIGHT")) {
       bitSet(msgState, btRight);
       spin(three_rotation * 4, 1);  // Turn 90 degrees right
       spin(three_rotation * 4, 1);
       forward(one_rotation);
-      message = "";
     }
     if (message.startsWith("FORWARDS")) {
       // int dist = message.substring(9).toInt(); // Change the distance it moves
       bitSet(msgState, btForwards);
       forward(one_rotation);
-      message = "";
     }
     if (message.startsWith("BACKWARDS")) {
       // int dist = message.substring(9).toInt(); // Change the distance it moves
       bitSet(msgState, btBackwards);
       reverse(one_rotation);
-      message = "";
     }
     if (message.startsWith("STOP")) {
       bitSet(msgState, rest);
       forward(1);
-      message = "";
     }
-
     message = "";
     stringComplete = false;
-    // Serial.print("Array "); Serial.println(array[0]);
 
   }
 }
@@ -1206,19 +1166,24 @@ void listenBluetooth() {
 
 
 void topo_follow() {
-  while(message = "LEFT") {
-    bitSet(state, center);
+  bitSet(state, center);
+  if(message.equalsIgnoreCase("LEFT")) {    
     if (!(bitRead(flag, obLeft))){
-      forward(0.4*one_rotation);
       bitClear(state, center);
-      spin(one_rotation * 4, 1);
-      spin(one_rotation*4, 1);
-      forward(one_rotation);
+      bitSet(state, fleft);
+      // forward(0.4*one_rotation);
+      // bitClear(state, center);
+      // spin(one_rotation * 4, 1);
+      // spin(one_rotation*4, 1);
+      // forward(one_rotation);
       message = "";
     } //end of if left statement
   }
+  else {
+    bitSet(state, center);
+  }
 
-  while(message = "RIGHT") {
+  if(message.equalsIgnoreCase("RIGHT")) {
     bitSet(state,center);
     if (!(bitRead(flag, obRight))){
       bitClear(state, center);
@@ -1264,8 +1229,6 @@ void setup() {
   }
   left_thres = left_thres / 5 + 100;
   right_thres = right_thres / 5 + 100;
-  // Serial.println(right_thres);
-  // Serial.println(left_thres);
 
   // Set-up bluetooth module
   pinMode(9, OUTPUT);  // this pin will pull the HC-05 pin 34 (key pin) HIGH to switch module to AT mode
@@ -1277,15 +1240,10 @@ void setup() {
 
 void loop() {
   moveRobot();  // wall following proportional control
-  // PRRead();
-  // light_follow();
   listenBluetooth();
-  // updateSensors();
-  // array_maker();
   topo_follow();
   // GUItrack();
-  // message = "FORWARDS";
   // Light_track();
-  Serial.print("state: "); Serial.println(state);
+  
   // delay(500);
 }
