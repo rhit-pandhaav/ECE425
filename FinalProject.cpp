@@ -31,6 +31,39 @@
 #include <NewPing.h>           //Includes the NewPing library
 #include <SoftwareSerial.h>    //include Bluetooth module
 #include <TimerOne.h>          //Includes the TimerOne library
+/*Lab 4
+  Author: Advait Pandharkar & Alejandro Marcenido
+  Date: January 27th 2023
+  This program uses light sensors to track the light uing different bahaviors (love, fear, agressive and exploratory)
+  It also has a state machine (light_tracking) that wander and follows the light with obstacle avoidance.
+  Te speed of the wheels is proportional to the light.
+
+  It calibrates the light sensors everytime it is booted.
+
+  Hardware Connections:
+  Stepper Enable          Pin 48
+  Right Stepper Step      Pin 50
+  Right Stepper Direction Pin 51
+  Left Stepper Step       Pin 52
+  Left Stepper Direction  Pin 53
+
+  Front IR    A2
+  Back IR     A0
+  Right IR    A3
+  Left IR     A1
+  Left Sonar  A4
+  Right Sonar A5
+  Button      A15
+*/
+
+#include <AccelStepper.h>      //include the stepper motor library
+#include <Adafruit_MPU6050.h>  //Include library for MPU6050 IMU
+#include <Arduino.h>           //include for PlatformIO Ide
+#include <ArduinoQueue.h>
+#include <MultiStepper.h>    //include multiple stepper motor library
+#include <NewPing.h>         //Includes the NewPing library
+#include <SoftwareSerial.h>  //include Bluetooth module
+#include <TimerOne.h>        //Includes the TimerOne library
 
 // state LEDs connections
 #define redLED 6      // red LED for displaying states
@@ -80,6 +113,9 @@ NewPing sonarRt(snrRight, snrRight);                                   // create
 #define irMax 6   // IR maximum threshold for wall (use a deadband of 4 to 6 inches)
 #define snrMin 4  // sonar minimum threshold for wall (use a deadband of 4 to 6 inches)
 #define snrMax 6  // sonar maximum threshold for wall (use a deadband of 4 to 6 inches)
+
+volatile long encoder[2] = {0, 0};  //interrupt variable to hold number of encoder counts (left, right)
+
 
 int irFrontArray[5] = {0, 0, 0, 0, 0};  // array to hold 5 front IR readings
 int irRearArray[5] = {0, 0, 0, 0, 0};   // array to hold 5 back IR readings
@@ -205,6 +241,13 @@ volatile byte msgState;
 #define btRight 3
 #define rest 4
 
+// Storing the instrctions
+ArduinoQueue<int> instructions(10);
+#define stopMove 0
+#define turnLeft 1
+#define turnRight 2
+#define moveForward 3
+#define moveOneBackward 4
 /*This function, runToStop(), will run the robot until the target is achieved and
   then stop it
 */
@@ -224,6 +267,7 @@ void runToStop(void) {
   }
 }
 
+
 /*robot move forward function */
 void forward(int rot) {
   stepperLeft.setMaxSpeed(robot_spd);
@@ -240,6 +284,36 @@ void forward(int rot) {
   bitSet(state, movingR);           // move right wheel
   runToStop();                      // run until the robot reaches the target
 }
+
+void forwardTimes(int n) {
+  for (int i =0; i<n; i++) {
+    forward(five_rotation);
+  }
+}
+
+// //interrupt function to count left encoder tickes
+// void LwheelSpeed()
+// {
+//   encoder[LEFT] ++;  //count the left wheel encoder interrupts
+// }
+
+// //interrupt function to count right encoder ticks
+// void RwheelSpeed()
+// {
+//   encoder[RIGHT] ++; //count the right wheel encoder interrupts
+// }
+
+
+// void forward(int distance) {
+//   float currentL = encoder[0];    //Set initial variables for left and right motor encoders
+//   float currentR = encoder[1];
+//   while (encoder[0] < currentL + distance*45 || encoder[1] < currentR + distance * 46) {    //While loop goes reads the encoders and keeps running till it reaches the length
+//     stepperLeft.setSpeed(600);        //Set speed for the motors 
+//     stepperRight.setSpeed(600);
+//     stepperLeft.run();                //make the motors run
+//     stepperRight.run();
+//   }
+// }
 
 /*robot move reverse function */
 void reverse(int rot) {
@@ -423,33 +497,35 @@ void updateIR() {
   right = (1379 / (right - 59) - 1);
 
   float prev_left, prev_front, prev_back, prev_right;
-  
-  if(left > 40 || left < 0) {
+
+  if (left > 40 || left < 0) {
     left = prev_left;
   }
   prev_left = left;
 
-  if(right > 40 || right < 0) {
+  if (right > 40 || right < 0) {
     right = prev_right;
   }
   prev_right = right;
 
-  if(front > 40 || front < 0) {
+  if (front > 40 || front < 0) {
     front = prev_front;
   }
   prev_front = front;
 
-  if(back > 40 || back < 0) {
+  if (back > 40 || back < 0) {
     back = prev_back;
   }
   prev_back = back;
 
-  
-  BTSerial.print(front); BTSerial.print(" ");
-  BTSerial.print(left); BTSerial.print(" ");
-  BTSerial.print(back); BTSerial.print(" ");
-  BTSerial.print(right); BTSerial.println(" ");
-  
+  BTSerial.print(front);
+  BTSerial.print(" ");
+  BTSerial.print(left);
+  BTSerial.print(" ");
+  BTSerial.print(back);
+  BTSerial.print(" ");
+  BTSerial.print(right);
+  BTSerial.println(" ");
 
   // Stores data for the hallway following that is NOT capped between 4-6inches
   hallIR_left = left;
@@ -681,18 +757,68 @@ void updateState() {
 }
 
 /*
+   followInstruction() function, it overrides the moveRobot function to follow the instructions given.
+   It uses the sonars and sensors in a redundant way to get a more robust reading of where the obstacles are.
+*/
+void followInstructions() {
+  int nextInstruction = instructions.getHead();
+  Serial.print("Next Instruction: ");
+  Serial.println(nextInstruction);
+
+  if (nextInstruction == stopMove) {
+    bitClear(state, center);
+    stop();
+  }
+  if (nextInstruction == turnLeft) {
+    if ((!bitRead(flag, obLeft))) {  // no left wall
+      Serial.println("Turning left");
+      bitClear(state, center);       // Stop following center
+      spin(three_rotation * 4, 0);   // turn left
+      spin(three_rotation * 4, 0);   // turn left
+      forwardTimes(10);         // Go forwards
+      instructions.dequeue();
+    } else {
+      bitSet(state, center);
+    }
+  }
+  if (nextInstruction == turnRight) {
+    if ((!bitRead(flag, obRight))) {  // no right wall
+      Serial.println("Turning right");
+      bitClear(state, center);        // Stop following center
+      spin(three_rotation * 4, 1);    // turn right
+      spin(three_rotation * 4, 1);    // turn right
+      forwardTimes(10);         // Go forwards
+      instructions.dequeue();
+    } else {
+      bitSet(state, center);
+    }
+  }
+  if (nextInstruction == moveForward) {
+    if (!bitRead(flag, obRight) || !bitRead(flag, obFLeft)) {  // no right wall
+      Serial.println("Going Stright"); 
+      bitClear(state, center);        // Stop following center
+      forward(2*five_rotation);          // Go forwards
+      if (bitRead(flag, obRight) && bitRead(flag, obFLeft)) {
+        instructions.dequeue();
+      }
+    } else {
+
+    }
+
+  }
+}
+
+/*
   updateSensors() function, it calls all the update functions.
   It resets all the falgs and states
 */
 void updateSensors() {
-  test_state = !test_state;            // LED to test the heartbeat of the timer interrupt routine
-  digitalWrite(test_led, test_state);  // flash the timer interrupt LED
   flag = 0;                            // clear all sensor flags
   state = 0;                           // clear all state flags
   updateIR();                          // update IR readings and update flag variable and state machine
   updateSonar();                       // update Sonar readings and update flag variable and state machine
   updateError();                       // update sensor current, previous, change in error
-  updateState();                       // update State Machine based upon sensor readings
+  // updateState();                       // update State Machine based upon sensor readings
 }
 
 /*
@@ -783,8 +909,9 @@ void moveRobot() {
   //     }
   //   }
   if (bitRead(state, center)) {  // follow hallway
-    digitalWrite(grnLED,HIGH);
-    if (bitRead(flag, obFront)) {       // check for a front wall before moving forward
+    digitalWrite(grnLED, HIGH);
+    Serial.println("Following hallway");
+    if (bitRead(flag, obFront)) {  // check for a front wall before moving forward
       // Turn 180 degrees left
       spin(three_rotation * 4, 0);
       spin(three_rotation * 4, 0);
@@ -794,8 +921,8 @@ void moveRobot() {
     }
 
     // Here is where we add the PD controller.
-    // Kp = one_rotation/3
-    // Kd = one_rotation/5
+    // Kp is one_rotation/3
+    // Kd is one_rotation/5
     float hallway_rotation = one_rotation * (abs(error) / 3 - abs(derror) / 5);
 
     if (((error < 2 && error > -2))) {
@@ -812,20 +939,21 @@ void moveRobot() {
         pivot(hallway_rotation, 0);  // pivot right to adjust forward
       }
     }
-  } else if (bitRead(state, wander)) {  // Random wander
-    if (bitRead(flag, obFront)) {       // check for a front wall before wondering
-      spin(three_rotation * 4, 0);      // Turn 90 degrees right
-      spin(three_rotation * 4, 0);
-    }
-    stop();
-    delay(500);
-    digitalWrite(grnLED, HIGH);  // Turn green LED on
-    digitalWrite(redLED, LOW);   // Turn red LED off
-    digitalWrite(ylwLED, LOW);   // Turn yellow LED off
-    pivot(half_rotation, 0);     // Pivot right
-    forward(one_rotation);       // Go forward
-    pivot(quarter_rotation, 1);  // Pivot left
   }
+  // else if (bitRead(state, wander)) {  // Random wander
+  //   if (bitRead(flag, obFront)) {       // check for a front wall before wondering
+  //     spin(three_rotation * 4, 0);      // Turn 90 degrees right
+  //     spin(three_rotation * 4, 0);
+  //   }
+  //   stop();
+  //   delay(500);
+  //   digitalWrite(grnLED, HIGH);  // Turn green LED on
+  //   digitalWrite(redLED, LOW);   // Turn red LED off
+  //   digitalWrite(ylwLED, LOW);   // Turn yellow LED off
+  //   pivot(half_rotation, 0);     // Pivot right
+  //   forward(one_rotation);       // Go forward
+  //   pivot(quarter_rotation, 1);  // Pivot left
+  // }
 }
 
 void light_follow() {  // Do Love (motor near the light moves slower) // explorer(motor not close to the light moves slower)
@@ -1102,13 +1230,6 @@ void GUItrack() {
   bitSet(msgState, rest);
 }
 
-
-
-
-
-
-
-
 void listenBluetooth() {
   while (BTSerial.available()) {
     char inChar = (char)BTSerial.read();
@@ -1117,77 +1238,45 @@ void listenBluetooth() {
     } else {
       message += inChar;
     }
-  }  
+  }
 
   if (stringComplete) {
-    Serial.print("msg: "); Serial.println(message);
-    bitClear(msgState, btForwards);
-    bitClear(msgState, btBackwards);
-    bitClear(msgState, btLeft);
-    bitClear(msgState, btRight);
-    bitClear(msgState, rest);
+    Serial.print("msg: ");
+    Serial.println(message);
     digitalWrite(6, HIGH);  // Turn LED on to check
     message.toUpperCase();
     if (message.equalsIgnoreCase("LEFT")) {
-      bitSet(msgState, btLeft);
-      spin(three_rotation * 4, 0);  // Turn 90 degrees right
-      spin(three_rotation * 4, 0);
-      forward(one_rotation);
+      instructions.enqueue(turnLeft);
     }
     if (message.equalsIgnoreCase("RIGHT")) {
-      bitSet(msgState, btRight);
-      spin(three_rotation * 4, 1);  // Turn 90 degrees right
-      spin(three_rotation * 4, 1);
-      forward(one_rotation);
+      instructions.enqueue(turnRight);
     }
-    if (message.startsWith("FORWARDS")) {
-      // int dist = message.substring(9).toInt(); // Change the distance it moves
-      bitSet(msgState, btForwards);
-      forward(one_rotation);
+    if (message.equalsIgnoreCase("FORWARDS")) {
+      instructions.enqueue(moveForward);
     }
-    if (message.startsWith("BACKWARDS")) {
-      // int dist = message.substring(9).toInt(); // Change the distance it moves
-      bitSet(msgState, btBackwards);
-      reverse(one_rotation);
+    if (message.equalsIgnoreCase("BACKWARDS")) {
+      instructions.enqueue(moveOneBackward);
     }
-    if (message.startsWith("STOP")) {
-      bitSet(msgState, rest);
-      forward(1);
+    if (message.equalsIgnoreCase("STOP")) {
+      instructions.enqueue(stopMove);
     }
     message = "";
     stringComplete = false;
-
   }
 }
 
+// void topo_follow() {
+//   if(message.equalsIgnoreCase("LEFT")) {
+//     bitSet(state, center);
+//     instructions.enqueue(turnLeft);
+//   }
 
-
-
-
-
-void topo_follow() {
-  bitSet(state, center);
-  if(message.equalsIgnoreCase("LEFT")) {    
-    intructions = 
-  }
-  else {
-    bitSet(state, center);
-  }
-
-  if(message.equalsIgnoreCase("RIGHT")) {
-    bitSet(state,center);
-    if (!(bitRead(flag, obRight))){
-      bitClear(state, center);
-      spin(one_rotation * 4, 0);
-      spin(one_rotation*4, 0);
-      forward(one_rotation);
-      message = "";
-    } //end of if left statement
-  }
-  bitSet(state, center);
-}
-
-
+//   if(message.equalsIgnoreCase("RIGHT")) {
+//     bitSet(state, center);
+//     instructions.enqueue(turnRight);
+//     Serial.print(instructions.getHead());
+//   }
+// }
 
 void setup() {
   // stepper Motor set up
@@ -1212,6 +1301,10 @@ void setup() {
   Serial.begin(baud_rate);                      // start serial communication in order to debug the software while coding
   delay(1500);                                  // wait 3 seconds before robot moves
 
+  // attachInterrupt(digitalPinToInterrupt(ltEncoder), LwheelSpeed, CHANGE);    //init the interrupt mode for the left encoder
+  // attachInterrupt(digitalPinToInterrupt(rtEncoder), RwheelSpeed, CHANGE);   //init the interrupt mode for the right encoder
+
+
   // Calibrate the light sensor
   for (int k = 0; k < 5; k++) {
     left_thres += analogRead(PR_Left);
@@ -1230,11 +1323,12 @@ void setup() {
 }
 
 void loop() {
-  moveRobot();  // wall following proportional control
   listenBluetooth();
-  topo_follow();
+  followInstructions();
+  moveRobot();  // wall following proportional control
+  // topo_follow();
   // GUItrack();
   // Light_track();
-  
+
   // delay(500);
 }
