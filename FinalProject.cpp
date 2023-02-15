@@ -203,6 +203,7 @@ volatile byte msgState;
 #define btBackwards 1
 #define btLeft 2
 #define btRight 3
+#define rest 4
 
 /*This function, runToStop(), will run the robot until the target is achieved and
   then stop it
@@ -420,6 +421,35 @@ void updateIR() {
   back = (1116 / (back + 6) - 1);
   left = (1447 / (left - 29) - 1);
   right = (1379 / (right - 59) - 1);
+
+  float prev_left, prev_front, prev_back, prev_right;
+  
+  if(left > 40 || left < 0) {
+    left = prev_left;
+  }
+  prev_left = left;
+
+  if(right > 40 || right < 0) {
+    right = prev_right;
+  }
+  prev_right = right;
+
+  if(front > 40 || front < 0) {
+    front = prev_front;
+  }
+  prev_front = front;
+
+  if(back > 40 || back < 0) {
+    back = prev_back;
+  }
+  prev_back = back;
+
+  
+  BTSerial.print(front); BTSerial.print(" ");
+  BTSerial.print(left); BTSerial.print(" ");
+  BTSerial.print(back); BTSerial.print(" ");
+  BTSerial.print(right); BTSerial.println(" ");
+  
 
   // Stores data for the hallway following that is NOT capped between 4-6inches
   hallIR_left = left;
@@ -681,78 +711,79 @@ void moveRobot() {
   digitalWrite(grnLED, LOW);
   digitalWrite(ylwLED, LOW);
 
-  if (bitRead(state, fright)) {
-    digitalWrite(redLED, HIGH);
-    digitalWrite(ylwLED, HIGH);
-    if (bitRead(flag, obRight) && !bitRead(flag, obFRight)) {
-      forward(two_rotation);
-      spin(three_rotation * 4, 1);
-      forward(two_rotation);
-    }
-    if (bitRead(flag, obFront)) {  // check for a front wall before moving
-      // make left turn if wall found
-      digitalWrite(redLED, HIGH);
-      digitalWrite(grnLED, HIGH);
-      digitalWrite(ylwLED, LOW);
-      reverse(two_rotation);        // back up
-      spin(three_rotation * 4, 0);  // turn left
-      spin(three_rotation * 4, 0);  // turn left
-    }
-    if (right_error == 0) {     // no error, robot in deadband
-      forward(three_rotation);  // move robot forward
-      digitalWrite(redLED, LOW);
-      digitalWrite(ylwLED, LOW);
-      digitalWrite(grnLED, LOW);
-    } else {
-      if (right_error < 0) {  // negative error means too close
-        digitalWrite(ylwLED, HIGH);
-        digitalWrite(redLED, LOW);
-        pivot(right_rotation, 0);  // pivot left
-        forward(one_rotation / 10);
-        pivot(right_rotation, 1);    // pivot right to straighten up
-      } else if (right_error > 0) {  // positive error means too far
-        digitalWrite(redLED, HIGH);
-        digitalWrite(ylwLED, LOW);
-        pivot(right_rotation, 1);  // pivot right
-        forward(one_rotation / 10);
-        pivot(right_rotation, 0);  // pivot left to straighten up
-      }
-    }
-  } else if (bitRead(state, fleft)) {  // Follow left wall
-    digitalWrite(ylwLED, HIGH);
-    digitalWrite(grnLED, HIGH);
-    if (bitRead(flag, obLeft) && !bitRead(flag, obFLeft)) {  // Create new state for outside wall and implement this code there
-      forward(two_rotation);
-      spin(three_rotation * 4, 0);  // Incease the spins
-      forward(two_rotation);
-    }
-    if (bitRead(flag, obFront)) {  // check for a front wall before moving forward
-      // Back up and turn 90 degrees right
-      digitalWrite(redLED, HIGH);
-      digitalWrite(grnLED, HIGH);
-      digitalWrite(ylwLED, LOW);
-      reverse(two_rotation);        // back up
-      spin(three_rotation * 4, 1);  // turn right
-      spin(three_rotation * 4, 1);  // turn right
-    }
-    if (left_error == 0) {    // no error robot in dead band drives forward
-      forward(two_rotation);  // move robot forward
-    } else {
-      if (left_error < 0) {  // negative error means too close
-        digitalWrite(ylwLED, HIGH);
-        digitalWrite(redLED, LOW);
-        pivot(left_rotation, 1);     // pivot right
-        forward(one_rotation / 10);  // Move forwards
-        pivot(left_rotation, 0);     // pivot left
-      } else if (left_error > 0) {   // positive error means too far
-        digitalWrite(redLED, HIGH);
-        digitalWrite(ylwLED, LOW);
-        pivot(left_rotation, 0);  // pivot left
-        forward(one_rotation / 10);
-        pivot(left_rotation, 1);  // pivot right
-      }
-    }
-  } else if (bitRead(state, center)) {  // follow hallway
+  // if (bitRead(state, fright)) {
+  //   digitalWrite(redLED, HIGH);
+  //   digitalWrite(ylwLED, HIGH);
+  //   if (bitRead(flag, obRight) && !bitRead(flag, obFRight)) {
+  //     forward(two_rotation);
+  //     spin(three_rotation * 4, 1);
+  //     forward(two_rotation);
+  //   }
+  //   if (bitRead(flag, obFront)) {  // check for a front wall before moving
+  //     // make left turn if wall found
+  //     digitalWrite(redLED, HIGH);
+  //     digitalWrite(grnLED, HIGH);
+  //     digitalWrite(ylwLED, LOW);
+  //     reverse(two_rotation);        // back up
+  //     spin(three_rotation * 4, 0);  // turn left
+  //     spin(three_rotation * 4, 0);  // turn left
+  //   }
+  //   if (right_error == 0) {     // no error, robot in deadband
+  //     forward(three_rotation);  // move robot forward
+  //     digitalWrite(redLED, LOW);
+  //     digitalWrite(ylwLED, LOW);
+  //     digitalWrite(grnLED, LOW);
+  //   } else {
+  //     if (right_error < 0) {  // negative error means too close
+  //       digitalWrite(ylwLED, HIGH);
+  //       digitalWrite(redLED, LOW);
+  //       pivot(right_rotation, 0);  // pivot left
+  //       forward(one_rotation / 10);
+  //       pivot(right_rotation, 1);    // pivot right to straighten up
+  //     } else if (right_error > 0) {  // positive error means too far
+  //       digitalWrite(redLED, HIGH);
+  //       digitalWrite(ylwLED, LOW);
+  //       pivot(right_rotation, 1);  // pivot right
+  //       forward(one_rotation / 10);
+  //       pivot(right_rotation, 0);  // pivot left to straighten up
+  //     }
+  //   }
+  // } else if (bitRead(state, fleft)) {  // Follow left wall
+  //   digitalWrite(ylwLED, HIGH);
+  //   digitalWrite(grnLED, HIGH);
+  //   if (bitRead(flag, obLeft) && !bitRead(flag, obFLeft)) {  // Create new state for outside wall and implement this code there
+  //     forward(two_rotation);
+  //     spin(three_rotation * 4, 0);  // Incease the spins
+  //     forward(two_rotation);
+  //   }
+  //   if (bitRead(flag, obFront)) {  // check for a front wall before moving forward
+  //     // Back up and turn 90 degrees right
+  //     digitalWrite(redLED, HIGH);
+  //     digitalWrite(grnLED, HIGH);
+  //     digitalWrite(ylwLED, LOW);
+  //     reverse(two_rotation);        // back up
+  //     spin(three_rotation * 4, 1);  // turn right
+  //     spin(three_rotation * 4, 1);  // turn right
+  //   }
+  //   if (left_error == 0) {    // no error robot in dead band drives forward
+  //     forward(two_rotation);  // move robot forward
+  //   } else {
+  //     if (left_error < 0) {  // negative error means too close
+  //       digitalWrite(ylwLED, HIGH);
+  //       digitalWrite(redLED, LOW);
+  //       pivot(left_rotation, 1);     // pivot right
+  //       forward(one_rotation / 10);  // Move forwards
+  //       pivot(left_rotation, 0);     // pivot left
+  //     } else if (left_error > 0) {   // positive error means too far
+  //       digitalWrite(redLED, HIGH);
+  //       digitalWrite(ylwLED, LOW);
+  //       pivot(left_rotation, 0);  // pivot left
+  //       forward(one_rotation / 10);
+  //       pivot(left_rotation, 1);  // pivot right
+  //     }
+  //   }
+  if (bitRead(state, center)) {  // follow hallway
+    digitalWrite(grnLED,HIGH);
     if (bitRead(flag, obFront)) {       // check for a front wall before moving forward
       // Turn 180 degrees left
       spin(three_rotation * 4, 0);
@@ -953,7 +984,6 @@ void light_follow() {  // Do Love (motor near the light moves slower) // explore
     if ((left > left_thres || right > right_thres)) {  // Light detected
       if (left + 100 > right) {
         right_speed = right_speed / ((left + 100) / 500);
-
         stepperLeft.setMaxSpeed(left_speed);
         stepperRight.setMaxSpeed(right_speed);
         long positions[2];                                                                    // Array of desired stepper positions
@@ -1057,21 +1087,60 @@ void Light_track() {
 
 void GUItrack() {
   if (bitRead(msgState, btRight)) {
-    spin(three_rotation * 4, 0);  // Turn 90 degrees right
-    spin(three_rotation * 4, 0);
-    forward(1);
-  } else if (bitRead(msgState, btLeft)) {
     spin(three_rotation * 4, 1);  // Turn 90 degrees right
     spin(three_rotation * 4, 1);
+    forward(1);
+  } else if (bitRead(msgState, btLeft)) {
+    spin(three_rotation * 4, 0);  // Turn 90 degrees right
+    spin(three_rotation * 4, 0);
     forward(1);
   } else if (bitRead(msgState, btForwards)) {
     forward(1.5);
   } else if (bitRead(msgState, btBackwards)) {
     reverse(1.5);
   }
+  bitSet(msgState, rest);
 }
 
+
+
+
+int position = 0;
+String array[] = {};
+
+void array_maker() {
+  // Serial.println("Message recieved 1");
+
+  
+  // while(1){
+  //   if (message.equalsIgnoreCase("END")){
+  //     break;
+  //   }
+
+  //   array[position] = message;
+  //   position++;
+  //   Serial.println("Message recieved 2");
+    
+  //   while (BTSerial.available()) {
+  //     char inChar = (char)BTSerial.read();
+  //     if (inChar == '\n') {
+  //       stringComplete = true;
+  //     } else {
+  //       message += inChar;
+  //     }
+  //     // Serial.println("MSG Recv 3");
+  //   }
+  // }
+  // for (int i = 0; i < sizeof(array); i++){
+  //   Serial.println(array[i]);
+  // }
+}
+
+
+
+
 void listenBluetooth() {
+  // message = "";
   while (BTSerial.available()) {
     char inChar = (char)BTSerial.read();
     if (inChar == '\n') {
@@ -1079,30 +1148,89 @@ void listenBluetooth() {
     } else {
       message += inChar;
     }
-  }
+  }  
+
   if (stringComplete) {
+    // Serial.print("msg: "); Serial.println(message);
+    bitClear(msgState, btForwards);
+    bitClear(msgState, btBackwards);
+    bitClear(msgState, btLeft);
+    bitClear(msgState, btRight);
+    bitClear(msgState, rest);
     digitalWrite(6, HIGH);  // Turn LED on to check
     message.toUpperCase();
-    // Do smth with the message
+    // array[position] = message;
+    // position++;
     if (message.equalsIgnoreCase("LEFT")) {
       bitSet(msgState, btLeft);
+      spin(three_rotation * 4, 0);  // Turn 90 degrees right
+      spin(three_rotation * 4, 0);
+      forward(one_rotation);
+      message = "";
     }
     if (message.equalsIgnoreCase("RIGHT")) {
       bitSet(msgState, btRight);
+      spin(three_rotation * 4, 1);  // Turn 90 degrees right
+      spin(three_rotation * 4, 1);
+      forward(one_rotation);
+      message = "";
     }
-    if (message.startsWith("FORWARDS ")) {
+    if (message.startsWith("FORWARDS")) {
       // int dist = message.substring(9).toInt(); // Change the distance it moves
       bitSet(msgState, btForwards);
+      forward(one_rotation);
+      message = "";
     }
-    if (message.startsWith("BACKWARDS ")) {
+    if (message.startsWith("BACKWARDS")) {
       // int dist = message.substring(9).toInt(); // Change the distance it moves
       bitSet(msgState, btBackwards);
+      reverse(one_rotation);
+      message = "";
+    }
+    if (message.startsWith("STOP")) {
+      bitSet(msgState, rest);
+      forward(1);
+      message = "";
     }
 
     message = "";
     stringComplete = false;
+    // Serial.print("Array "); Serial.println(array[0]);
+
   }
 }
+
+
+
+
+
+
+void topo_follow() {
+  while(message = "LEFT") {
+    bitSet(state, center);
+    if (!(bitRead(flag, obLeft))){
+      forward(0.4*one_rotation);
+      bitClear(state, center);
+      spin(one_rotation * 4, 1);
+      spin(one_rotation*4, 1);
+      forward(one_rotation);
+      message = "";
+    } //end of if left statement
+  }
+
+  while(message = "RIGHT") {
+    bitSet(state,center);
+    if (!(bitRead(flag, obRight))){
+      bitClear(state, center);
+      spin(one_rotation * 4, 0);
+      spin(one_rotation*4, 0);
+      forward(one_rotation);
+      message = "";
+    } //end of if left statement
+  }
+  bitSet(state, center);
+}
+
 
 
 void setup() {
@@ -1132,28 +1260,32 @@ void setup() {
   for (int k = 0; k < 5; k++) {
     left_thres += analogRead(PR_Left);
     right_thres += analogRead(PR_Right);
-    Serial.println(k);
+    // Serial.println(k);
   }
   left_thres = left_thres / 5 + 100;
   right_thres = right_thres / 5 + 100;
-  Serial.println(right_thres);
-  Serial.println(left_thres);
+  // Serial.println(right_thres);
+  // Serial.println(left_thres);
 
   // Set-up bluetooth module
   pinMode(9, OUTPUT);  // this pin will pull the HC-05 pin 34 (key pin) HIGH to switch module to AT mode
   digitalWrite(9, HIGH);
   Serial.begin(9600);
-  Serial.println("Enter AT commands:");
+  Serial.println("Set up:");
   BTSerial.begin(9600);  // HC-05 default speed in AT command more
 }
 
 void loop() {
-  // moveRobot();  // wall following proportional control
+  moveRobot();  // wall following proportional control
   // PRRead();
   // light_follow();
   listenBluetooth();
-  followCommands();
-  Light_track();
-
+  // updateSensors();
+  // array_maker();
+  topo_follow();
+  // GUItrack();
+  // message = "FORWARDS";
+  // Light_track();
+  Serial.print("state: "); Serial.println(state);
   // delay(500);
 }
