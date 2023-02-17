@@ -248,6 +248,9 @@ ArduinoQueue<int> instructions(10);
 #define turnRight 2
 #define moveForward 3
 #define moveOneBackward 4
+
+
+
 /*This function, runToStop(), will run the robot until the target is achieved and
   then stop it
 */
@@ -543,7 +546,7 @@ void updateIR() {
     right = prev_right;
   }
 
-  if (front < 10 && front > 0) {  // If an object is between 0 to 10 inches, set a flag on obFront bit
+  if (front < 4 && front > 0) {  // If an object is between 0 to 10 inches, set a flag on obFront bit
     digitalWrite(redLED, HIGH);   // turn on red LED
     digitalWrite(grnLED, LOW);
     bitSet(flag, obFront);
@@ -774,9 +777,9 @@ void followInstructions() {
       Serial.println("Turning left");
       bitClear(state, center);       // Stop following center
       spin(three_rotation * 4, 0);   // turn left
-      forwardTimes(10);         // Go forwards
+      forwardTimes(6);         // Go forwards
       spin(three_rotation * 4, 0);   // turn left
-      forwardTimes(5);         // Go forwards
+      forwardTimes(10);         // Go forwards
       instructions.dequeue();
     } else {
       bitSet(state, center);
@@ -787,9 +790,9 @@ void followInstructions() {
       Serial.println("Turning right");
       bitClear(state, center);        // Stop following center
       spin(three_rotation * 4, 1);    // turn right
-      forwardTimes(10);         // Go forwards
+      forwardTimes(6);         // Go forwards
       spin(three_rotation * 4, 1);    // turn right
-      forwardTimes(5);         // Go forwards
+      forwardTimes(10);         // Go forwards
       instructions.dequeue();
     } else {
       bitSet(state, center);
@@ -914,12 +917,8 @@ void moveRobot() {
     digitalWrite(grnLED, HIGH);
     Serial.println("Following hallway");
     if (bitRead(flag, obFront)) {  // check for a front wall before moving forward
-      // Turn 180 degrees left
-      spin(three_rotation * 4, 0);
-      spin(three_rotation * 4, 0);
-      spin(three_rotation * 4, 0);
-      spin(three_rotation * 4, 0);
-      forward(half_rotation);  // Move forward
+      // Stop
+      stop();
     }
 
     // Here is where we add the PD controller.
@@ -1249,9 +1248,13 @@ void listenBluetooth() {
     message.toUpperCase();
     if (message.equalsIgnoreCase("LEFT")) {
       instructions.enqueue(turnLeft);
+      BTSerial.print("ok");
+      BTSerial.println(" ");
     }
     if (message.equalsIgnoreCase("RIGHT")) {
       instructions.enqueue(turnRight);
+      BTSerial.print("ok");
+      BTSerial.println(" ");
     }
     if (message.equalsIgnoreCase("FORWARDS")) {
       instructions.enqueue(moveForward);
@@ -1262,6 +1265,7 @@ void listenBluetooth() {
     if (message.equalsIgnoreCase("STOP")) {
       instructions.enqueue(stopMove);
     }
+    Serial.print("Instruction size: "); Serial.println(instructions.itemCount());
     message = "";
     stringComplete = false;
   }
