@@ -774,8 +774,9 @@ void followInstructions() {
       Serial.println("Turning left");
       bitClear(state, center);       // Stop following center
       spin(three_rotation * 4, 0);   // turn left
-      spin(three_rotation * 4, 0);   // turn left
       forwardTimes(10);         // Go forwards
+      spin(three_rotation * 4, 0);   // turn left
+      forwardTimes(5);         // Go forwards
       instructions.dequeue();
     } else {
       bitSet(state, center);
@@ -786,8 +787,9 @@ void followInstructions() {
       Serial.println("Turning right");
       bitClear(state, center);        // Stop following center
       spin(three_rotation * 4, 1);    // turn right
-      spin(three_rotation * 4, 1);    // turn right
       forwardTimes(10);         // Go forwards
+      spin(three_rotation * 4, 1);    // turn right
+      forwardTimes(5);         // Go forwards
       instructions.dequeue();
     } else {
       bitSet(state, center);
